@@ -1,0 +1,7 @@
+fixture = "t9-source-drift"
+taxonomy = "T9"
+set = "extension"
+expect = "fail"
+expected_finding = "SOURCE_DRIFT"
+concept = "metrics/revenue"
+source_id = "raw-extract"

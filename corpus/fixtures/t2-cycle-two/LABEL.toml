@@ -1,0 +1,5 @@
+fixture = "t2-cycle-two"
+taxonomy = "T2"
+expect = "fail"
+expected_finding = "SUPERSESSION_CYCLE"
+concept = "a"

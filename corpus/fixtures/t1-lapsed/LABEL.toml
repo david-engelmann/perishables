@@ -1,0 +1,7 @@
+fixture = "t1-lapsed"
+taxonomy = "T1"
+expect = "fail"
+expected_finding = "LAPSED_VERIFICATION"
+concept = "metrics/revenue"
+expected_raw_tier = "human-reviewed"
+expected_recomputed_tier = "unverified"

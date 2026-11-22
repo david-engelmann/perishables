@@ -1,0 +1,9 @@
+[package]
+name = "perishables-core"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Trust layer checks for Open Knowledge Format bundles. Tier recompute, verification currency, supersession chains, and freshness, as a library."
+
+[dependencies]

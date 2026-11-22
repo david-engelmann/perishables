@@ -1,0 +1,6 @@
+fixture = "t6-provenance-footnote"
+taxonomy = "T6"
+expect = "fail"
+expected_finding = "UNRESOLVED_CITATION"
+concept = "metrics/revenue"
+missing_source_id = "audit-memo"

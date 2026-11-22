@@ -1,0 +1,5 @@
+fixture = "t8-malformed-stale-after"
+taxonomy = "T8"
+expect = "fail"
+expected_finding = "UNPARSEABLE_STALE_AFTER"
+concept = "metrics/revenue"

@@ -1,0 +1,6 @@
+fixture = "t8-malformed-verification"
+taxonomy = "T8"
+expect = "fail"
+expected_finding = "MALFORMED_VERIFICATION"
+concept = "metrics/revenue"
+expected_recomputed_tier = "unverified"

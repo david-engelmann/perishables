@@ -1,0 +1,5 @@
+fixture = "t3-dangling-external"
+taxonomy = "T3"
+expect = "fail"
+expected_finding = "DANGLING_SUPERSEDED_BY"
+concept = "metrics/old-revenue"

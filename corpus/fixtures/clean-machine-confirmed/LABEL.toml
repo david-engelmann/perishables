@@ -1,0 +1,4 @@
+fixture = "clean-machine-confirmed"
+taxonomy = "clean"
+expect = "pass"
+expected_tier_metrics_event_count = "machine-confirmed"

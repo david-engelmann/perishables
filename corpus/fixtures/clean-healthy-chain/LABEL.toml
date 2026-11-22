@@ -1,0 +1,4 @@
+fixture = "clean-healthy-chain"
+taxonomy = "clean"
+expect = "pass"
+expected_tier_metrics_revenue = "human-reviewed"

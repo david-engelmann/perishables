@@ -1,0 +1,6 @@
+fixture = "t6-provenance-missing-file"
+taxonomy = "T6"
+expect = "fail"
+expected_finding = "MISSING_SOURCE"
+concept = "metrics/revenue"
+missing_source_id = "raw-extract"

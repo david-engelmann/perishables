@@ -1,0 +1,4 @@
+fixture = "clean-no-trust-fields"
+taxonomy = "clean"
+expect = "pass"
+expected_tier_notes_glossary = "unverified"

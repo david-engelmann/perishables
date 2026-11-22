@@ -1,0 +1,7 @@
+fixture = "t5-attested-mismatch"
+taxonomy = "T5"
+expect = "fail"
+expected_finding = "ATTESTED_RESULT_MISMATCH"
+concept = "computations/row-count"
+expected_recomputed_result = "3"
+claimed_result = "42"

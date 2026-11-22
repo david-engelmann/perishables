@@ -1,0 +1,6 @@
+fixture = "t4-stale-stable"
+taxonomy = "T4"
+expect = "fail"
+expected_finding = "STALE_BUT_STABLE"
+concept = "metrics/revenue"
+as_of = "2026-11-20"

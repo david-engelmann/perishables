@@ -1,0 +1,110 @@
+# The perishables planted defect corpus manifest.
+# Corpus versioning is independent of the tool version. Adding a
+# fixture increments the minor version. Changing an expected result
+# increments the major version and needs a written reason in the
+# release notes. Each fixture directory also carries its own
+# LABEL.toml with the same expectation in machine readable form.
+
+corpus_version = "0.1.0"
+as_of = "2026-11-20"
+auditor_version_range = ">=0.1.0"
+
+[[fixture]]
+name = "t1-lapsed"
+taxonomy = "T1"
+expect = "fail"
+expected_finding = "LAPSED_VERIFICATION"
+
+[[fixture]]
+name = "t2-cycle-two"
+taxonomy = "T2"
+expect = "fail"
+expected_finding = "SUPERSESSION_CYCLE"
+
+[[fixture]]
+name = "t2-cycle-three"
+taxonomy = "T2"
+expect = "fail"
+expected_finding = "SUPERSESSION_CYCLE"
+
+[[fixture]]
+name = "t3-dangling-missing"
+taxonomy = "T3"
+expect = "fail"
+expected_finding = "DANGLING_SUPERSEDED_BY"
+
+[[fixture]]
+name = "t3-dangling-escape"
+taxonomy = "T3"
+expect = "fail"
+expected_finding = "DANGLING_SUPERSEDED_BY"
+
+[[fixture]]
+name = "t3-dangling-external"
+taxonomy = "T3"
+expect = "fail"
+expected_finding = "DANGLING_SUPERSEDED_BY"
+
+[[fixture]]
+name = "t4-stale-stable"
+taxonomy = "T4"
+expect = "fail"
+expected_finding = "STALE_BUT_STABLE"
+
+[[fixture]]
+name = "t5-attested-mismatch"
+taxonomy = "T5"
+expect = "fail"
+expected_finding = "ATTESTED_RESULT_MISMATCH"
+
+[[fixture]]
+name = "t6-provenance-footnote"
+taxonomy = "T6"
+expect = "fail"
+expected_finding = "UNRESOLVED_CITATION"
+
+[[fixture]]
+name = "t6-provenance-missing-file"
+taxonomy = "T6"
+expect = "fail"
+expected_finding = "MISSING_SOURCE"
+
+[[fixture]]
+name = "t7-superseded-without-deprecated"
+taxonomy = "T7"
+expect = "fail"
+expected_finding = "SUPERSEDED_WITHOUT_DEPRECATED"
+
+[[fixture]]
+name = "t8-malformed-verification"
+taxonomy = "T8"
+expect = "fail"
+expected_finding = "MALFORMED_VERIFICATION"
+
+[[fixture]]
+name = "t8-malformed-stale-after"
+taxonomy = "T8"
+expect = "fail"
+expected_finding = "UNPARSEABLE_STALE_AFTER"
+
+[[fixture]]
+name = "t9-source-drift"
+taxonomy = "T9"
+set = "extension"
+expect = "fail"
+expected_finding = "SOURCE_DRIFT"
+
+[[fixture]]
+name = "clean-healthy-chain"
+taxonomy = "clean"
+expect = "pass"
+
+[[fixture]]
+name = "clean-machine-confirmed"
+taxonomy = "clean"
+expect = "pass"
+
+[[fixture]]
+name = "clean-no-trust-fields"
+taxonomy = "clean"
+expect = "pass"

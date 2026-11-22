@@ -1,0 +1,5 @@
+fixture = "t7-superseded-without-deprecated"
+taxonomy = "T7"
+expect = "fail"
+expected_finding = "SUPERSEDED_WITHOUT_DEPRECATED"
+concept = "metrics/revenue"
