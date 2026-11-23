@@ -21,7 +21,7 @@ The checks also live in a library crate named perishables-core, so other tools c
 
 ## Current state
 
-The design is settled and recorded in docs/DESIGN.md. The library crate implements the four core checks, tier recompute, verification currency, the supersession chain walk, and the supersession check, plus the freshness and provenance checks, and the corpus gate runs them against every fixture in corpus/. The command line adapter re executes Attested Computations under the deterministic python profile and reports the verdict table the design record specifies. Source drift began as an extension level check and joined the default gate on 2026-11-23, after the corpus proved it separates cleanly, one finding on its own fixture and silence on the other sixteen. Nothing here is released yet.
+The design is settled and recorded in docs/DESIGN.md. The library crate implements the four core checks, tier recompute, verification currency, the supersession chain walk, and the supersession check, plus the freshness and provenance checks, and the corpus gate runs them against every fixture in corpus/. The command line adapter re executes Attested Computations under the deterministic python profile and reports the verdict table the design record specifies. Source drift began as an extension level check and joined the default gate on 2026-11-23, after the corpus proved it separates cleanly, one finding on its own fixture and silence on every other fixture. Nothing here is released yet.
 
 ## License
 

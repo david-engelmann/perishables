@@ -1,0 +1,5 @@
+fixture = "clean-team-verified"
+taxonomy = "clean"
+expect = "pass"
+exercised_rule = "SPEC 5.2 and 5.3, a team: verification is current eligible and gives machine-confirmed at best, never human-reviewed"
+expected_tier_metrics_team_metric = "machine-confirmed"

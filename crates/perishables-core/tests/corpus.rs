@@ -188,6 +188,33 @@ fn t6_provenance_defects() {
 }
 
 #[test]
+fn clean_team_verified() {
+    // SPEC 5.2 and 5.3, read firsthand for this pin. A team actor
+    // in verified gives the machine-confirmed tier, because a team
+    // name does not identify the person who did the check, and
+    // only the human scheme gives human-reviewed. The fixture
+    // carries one current team verification and nothing else, so
+    // both tiers must land on machine-confirmed with no findings.
+    let bundle = load("clean-team-verified");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings.is_empty(),
+        "a current team verification is not a defect, got {findings:?}"
+    );
+    let concept = bundle
+        .concept("metrics/team-metric")
+        .expect("concept exists");
+    let report = recompute_tier(concept, &clock());
+    assert_eq!(report.raw_tier, Tier::MachineConfirmed);
+    assert_eq!(report.recomputed_tier, Tier::MachineConfirmed);
+    assert_eq!(report.events.len(), 1);
+    assert_eq!(
+        report.events[0].class,
+        perishables_core::EventClass::Current
+    );
+}
+
+#[test]
 fn t9_source_drift() {
     let bundle = load("t9-source-drift");
     let findings = check_drift(&bundle);
@@ -223,6 +250,7 @@ fn drift_separates_cleanly() {
         "clean-healthy-chain",
         "clean-machine-confirmed",
         "clean-no-trust-fields",
+        "clean-team-verified",
     ] {
         let bundle = load(name);
         let findings = check_drift(&bundle);

@@ -105,6 +105,11 @@ taxonomy = "clean"
 expect = "pass"
 
 [[fixture]]
+name = "clean-team-verified"
+taxonomy = "clean"
+expect = "pass"
+
+[[fixture]]
 name = "clean-no-trust-fields"
 taxonomy = "clean"
 expect = "pass"
