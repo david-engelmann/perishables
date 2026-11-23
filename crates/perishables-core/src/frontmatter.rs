@@ -208,7 +208,9 @@ fn parse_block(lines: &[&str], start: usize, min_indent: usize) -> (Value, usize
                     break;
                 }
             }
-            if after.is_empty() || looks_like_mapping_entry(after) {
+            if after.starts_with('{') || after.starts_with('[') {
+                items.push(parse_inline(after));
+            } else if after.is_empty() || looks_like_mapping_entry(after) {
                 let refs: Vec<&str> = synthetic.iter().map(String::as_str).collect();
                 let (value, _) = parse_block(&refs, 0, content_col);
                 items.push(value);
