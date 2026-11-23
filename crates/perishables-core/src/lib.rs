@@ -15,6 +15,7 @@
 mod bundle;
 mod checks;
 mod frontmatter;
+mod hash;
 mod time;
 
 pub use bundle::{Bundle, Concept, SourceRef, VerifiedEvent};
@@ -91,6 +92,9 @@ pub enum FindingCode {
     /// its result differs from the attested result the bundle
     /// claims.
     AttestedResultMismatch,
+    /// Extension level. A source carries a recorded content hash
+    /// and the bytes in the bundle no longer hash to it.
+    SourceDrift,
 }
 
 impl FindingCode {
@@ -107,6 +111,7 @@ impl FindingCode {
             FindingCode::UnresolvedCitation => "UNRESOLVED_CITATION",
             FindingCode::MissingSource => "MISSING_SOURCE",
             FindingCode::AttestedResultMismatch => "ATTESTED_RESULT_MISMATCH",
+            FindingCode::SourceDrift => "SOURCE_DRIFT",
         }
     }
 }
@@ -237,4 +242,13 @@ pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
 /// at all records no provenance and is not a finding.
 pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
     checks::check_provenance(bundle)
+}
+
+/// Check source drift, the extension level check. A source that
+/// records a content hash is rehashed from the bytes in the
+/// bundle, and a mismatch is drift. This check stays out of the
+/// default gate, as the design record rules, until the corpus
+/// proves it separates cleanly. Callers opt in explicitly.
+pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
+    checks::check_drift(bundle)
 }

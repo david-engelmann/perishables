@@ -20,6 +20,9 @@ pub struct SourceRef {
     pub id: Option<String>,
     /// The resource the entry points at, when it carries one.
     pub resource: Option<String>,
+    /// A recorded content hash for the resource, when the entry
+    /// carries one under the `sha256` key.
+    pub sha256: Option<String>,
 }
 
 /// One verification event as recorded in frontmatter, before any
@@ -105,6 +108,43 @@ pub struct Bundle {
     /// bundle was loaded from disk. In memory bundles carry none,
     /// and checks that need the inventory say so by skipping.
     pub files: Option<std::collections::BTreeSet<String>>,
+    /// The bytes of in bundle sources that record a content hash,
+    /// keyed by bundle relative path. Only those files are read
+    /// into memory, because only the drift check needs bytes.
+    pub source_bytes: std::collections::BTreeMap<String, Vec<u8>>,
+}
+
+/// Resolve a path field to a bundle relative file path. A leading
+/// slash resolves from the bundle root, anything else from the
+/// directory of the concept that carries the field. External URIs
+/// and paths that escape the bundle do not resolve.
+pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if raw.contains("://") {
+        return None;
+    }
+    let stripped = raw.strip_prefix('/').unwrap_or(raw);
+    let combined = if raw.starts_with('/') {
+        stripped.to_string()
+    } else {
+        let parent = from_concept.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
+        if parent.is_empty() {
+            stripped.to_string()
+        } else {
+            format!("{parent}/{stripped}")
+        }
+    };
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in combined.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            other => parts.push(other),
+        }
+    }
+    Some(parts.join("/"))
 }
 
 impl Bundle {
@@ -164,10 +204,28 @@ impl Bundle {
             concepts.push(concept_from_frontmatter(id, &fm, &text));
         }
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut source_bytes = std::collections::BTreeMap::new();
+        for concept in &concepts {
+            for source in &concept.sources {
+                if source.sha256.is_none() {
+                    continue;
+                }
+                let Some(resource) = &source.resource else {
+                    continue;
+                };
+                let Some(path) = resolve_file_path(&concept.id, resource) else {
+                    continue;
+                };
+                if let Ok(bytes) = fs::read(root.join(&path)) {
+                    source_bytes.insert(path, bytes);
+                }
+            }
+        }
         Ok(Bundle {
             concepts,
             okf_version,
             files: Some(files),
+            source_bytes,
         })
     }
 
@@ -180,6 +238,7 @@ impl Bundle {
             concepts,
             okf_version: None,
             files: None,
+            source_bytes: std::collections::BTreeMap::new(),
         }
     }
 
@@ -259,6 +318,10 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
                 id: item.get("id").and_then(Value::as_str).map(str::to_string),
                 resource: item
                     .get("resource")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                sha256: item
+                    .get("sha256")
                     .and_then(Value::as_str)
                     .map(str::to_string),
             });

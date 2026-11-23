@@ -301,32 +301,43 @@ pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
 /// External resources do not resolve, by design, because the audit
 /// never fetches them.
 fn resolve_resource(from_concept: &str, raw: &str) -> Option<String> {
-    let raw = raw.trim();
-    if raw.contains("://") {
-        return None;
-    }
-    let stripped = raw.strip_prefix('/').unwrap_or(raw);
-    let combined = if raw.starts_with('/') {
-        stripped.to_string()
-    } else {
-        let parent = from_concept.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
-        if parent.is_empty() {
-            stripped.to_string()
-        } else {
-            format!("{parent}/{stripped}")
-        }
-    };
-    let mut parts: Vec<&str> = Vec::new();
-    for segment in combined.split('/') {
-        match segment {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
+    crate::bundle::resolve_file_path(from_concept, raw)
+}
+
+/// The drift check, extension level. A source that records a
+/// content hash is rehashed from the bytes loaded with the bundle,
+/// and a mismatch is drift. A missing file is the provenance
+/// check's finding, not this one's, and an external resource is
+/// never fetched, so neither is reported here.
+pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for concept in &bundle.concepts {
+        for source in &concept.sources {
+            let (Some(recorded), Some(resource)) = (&source.sha256, &source.resource) else {
+                continue;
+            };
+            let Some(path) = resolve_resource(&concept.id, resource) else {
+                continue;
+            };
+            let Some(bytes) = bundle.source_bytes.get(&path) else {
+                continue;
+            };
+            let actual = crate::hash::sha256_hex(bytes);
+            if !actual.eq_ignore_ascii_case(recorded.trim()) {
+                findings.push(Finding {
+                    concept_id: concept.id.clone(),
+                    code: FindingCode::SourceDrift,
+                    detail: format!(
+                        "source {} records sha256 {} but the bytes in the bundle hash to {actual}",
+                        source.id.as_deref().unwrap_or("without an id"),
+                        recorded.trim()
+                    ),
+                });
             }
-            other => parts.push(other),
         }
     }
-    Some(parts.join("/"))
+    sort_findings(&mut findings);
+    findings
 }
 
 /// The provenance check, implementing the design record section

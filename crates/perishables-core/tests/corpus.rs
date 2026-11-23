@@ -13,8 +13,8 @@
 use std::path::PathBuf;
 
 use perishables_core::{
-    AuditClock, Bundle, FindingCode, Tier, check_currency, check_freshness, check_provenance,
-    check_supersession, recompute_tier,
+    AuditClock, Bundle, FindingCode, Tier, check_currency, check_drift, check_freshness,
+    check_provenance, check_supersession, recompute_tier,
 };
 
 fn corpus_fixture(name: &str) -> PathBuf {
@@ -184,6 +184,51 @@ fn t6_provenance_defects() {
             .any(|f| f.code == FindingCode::MissingSource),
         "missing file fixture must report MISSING_SOURCE, got {findings:?}"
     );
+}
+
+#[test]
+fn t9_source_drift_extension() {
+    let bundle = load("t9-source-drift");
+    let findings = check_drift(&bundle);
+    assert_eq!(
+        findings.len(),
+        1,
+        "exactly one drift finding, got {findings:?}"
+    );
+    assert_eq!(findings[0].code, FindingCode::SourceDrift);
+    assert_eq!(findings[0].concept_id, "metrics/revenue");
+}
+
+#[test]
+fn drift_separates_cleanly() {
+    // The extension check must stay silent on every other fixture,
+    // which is the separation evidence the design record asks for
+    // before drift can join the default gate.
+    for name in [
+        "t1-lapsed",
+        "t2-cycle-two",
+        "t2-cycle-three",
+        "t3-dangling-missing",
+        "t3-dangling-escape",
+        "t3-dangling-external",
+        "t4-stale-stable",
+        "t5-attested-mismatch",
+        "t6-provenance-footnote",
+        "t6-provenance-missing-file",
+        "t7-superseded-without-deprecated",
+        "t8-malformed-verification",
+        "t8-malformed-stale-after",
+        "clean-healthy-chain",
+        "clean-machine-confirmed",
+        "clean-no-trust-fields",
+    ] {
+        let bundle = load(name);
+        let findings = check_drift(&bundle);
+        assert!(
+            findings.is_empty(),
+            "{name} must show no drift, got {findings:?}"
+        );
+    }
 }
 
 #[test]

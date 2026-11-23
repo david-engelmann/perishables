@@ -14,8 +14,8 @@ use std::process::ExitCode;
 
 use perishables_cli::execute::{mismatch_findings, run_computations};
 use perishables_core::{
-    AuditClock, Bundle, check_currency, check_freshness, check_provenance, check_supersession,
-    recompute_tier,
+    AuditClock, Bundle, check_currency, check_drift, check_freshness, check_provenance,
+    check_supersession, recompute_tier,
 };
 
 fn main() -> ExitCode {
@@ -23,9 +23,11 @@ fn main() -> ExitCode {
     match args.first().map(String::as_str) {
         Some("audit") => audit(&args[1..]),
         Some("corpus") => corpus(&args[1..]),
+        Some("drift") => drift(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> [--as-of YYYY-MM-DD]");
             eprintln!("       perishables corpus [fixtures-dir]");
+            eprintln!("       perishables drift <bundle>");
             ExitCode::from(2)
         }
     }
@@ -104,6 +106,41 @@ fn audit(args: &[String]) -> ExitCode {
     println!(
         "RESULT {} findings={}",
         if findings.is_empty() { "PASS" } else { "FAIL" },
+        findings.len()
+    );
+    if findings.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+/// The extension level drift check, run only when asked for by
+/// name. It is not part of the default audit gate.
+fn drift(args: &[String]) -> ExitCode {
+    let Some(bundle_path) = args.first() else {
+        eprintln!("drift needs a bundle directory");
+        return ExitCode::from(2);
+    };
+    let bundle = match Bundle::load(Path::new(bundle_path)) {
+        Ok(bundle) => bundle,
+        Err(err) => {
+            eprintln!("cannot load bundle {bundle_path}: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    let findings = check_drift(&bundle);
+    for finding in &findings {
+        println!(
+            "  FINDING {} {} {}",
+            finding.concept_id,
+            finding.code.label(),
+            finding.detail
+        );
+    }
+    println!(
+        "DRIFT {} findings={}",
+        if findings.is_empty() { "NONE" } else { "FOUND" },
         findings.len()
     );
     if findings.is_empty() {
