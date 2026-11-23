@@ -21,7 +21,7 @@ The checks also live in a library crate named perishables-core, so other tools c
 
 ## Current state
 
-This repository is at its scaffold stage. The design is settled and recorded in docs/DESIGN.md, the interface for the library crate is fixed, and the first checks are being built now. Nothing here is released yet.
+The design is settled and recorded in docs/DESIGN.md. The library crate implements the four core checks, tier recompute, verification currency, the supersession chain walk, and the supersession check, and the corpus gate runs them against every fixture in corpus/. The stale, provenance, and attested computation checks are still being built. Nothing here is released yet.
 
 ## License
 
