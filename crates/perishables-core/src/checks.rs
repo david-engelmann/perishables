@@ -17,8 +17,8 @@
 
 use crate::bundle::{Bundle, Concept, VerifiedEvent};
 use crate::{
-    AuditClock, ChainReport, ChainTerminal, EventClass, EventReport, Finding, FindingCode, Tier,
-    TierReport,
+    AuditClock, ChainReport, ChainTerminal, EventClass, EventReport, Finding, FindingCode,
+    InfoNote, Tier, TierReport,
 };
 
 const MAX_HOPS: usize = 64;
@@ -70,7 +70,7 @@ fn classify(concept: &Concept, event: &VerifiedEvent) -> EventReport {
     }
 }
 
-fn sort_findings(findings: &mut [Finding]) {
+pub(crate) fn sort_findings(findings: &mut [Finding]) {
     findings.sort_by(|a, b| {
         a.concept_id
             .cmp(&b.concept_id)
@@ -141,35 +141,20 @@ pub fn check_currency(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
 /// SPEC 6. A leading slash resolves from the bundle root, anything
 /// else from the directory of the concept that carries the field.
 /// External URIs and paths that escape the bundle do not resolve.
-/// Returns the resolved id and whether the path was root relative.
+/// The segment walking lives in one place, the bundle module file
+/// path resolver, and this function adds only the root relative
+/// reading and the concept id shape.
 fn resolve_path(from_concept: &str, raw: &str, root_relative: bool) -> Option<String> {
     let raw = raw.trim();
-    if raw.contains("://") {
-        return None;
-    }
-    let stripped = raw.strip_prefix('/').unwrap_or(raw);
-    let combined = if raw.starts_with('/') || root_relative {
-        stripped.to_string()
+    let rooted;
+    let effective = if root_relative && !raw.starts_with('/') {
+        rooted = format!("/{raw}");
+        rooted.as_str()
     } else {
-        let parent = from_concept.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
-        if parent.is_empty() {
-            stripped.to_string()
-        } else {
-            format!("{parent}/{stripped}")
-        }
+        raw
     };
-    let mut parts: Vec<&str> = Vec::new();
-    for segment in combined.split('/') {
-        match segment {
-            "" | "." => {}
-            ".." => {
-                parts.pop()?;
-            }
-            other => parts.push(other),
-        }
-    }
-    let joined = parts.join("/");
-    Some(joined.strip_suffix(".md").unwrap_or(&joined).to_string())
+    let path = crate::bundle::resolve_file_path(from_concept, effective)?;
+    Some(path.strip_suffix(".md").unwrap_or(&path).to_string())
 }
 
 fn dangling(start: &str, detail: String) -> Finding {
@@ -247,7 +232,7 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
             finding = Some(Finding {
                 concept_id: start.to_string(),
                 code: FindingCode::SupersessionCycle,
-                detail: "chain exceeds 64 hops".to_string(),
+                detail: format!("chain exceeds {MAX_HOPS} hops"),
             });
             break;
         }
@@ -302,6 +287,67 @@ pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
 /// never fetches them.
 fn resolve_resource(from_concept: &str, raw: &str) -> Option<String> {
     crate::bundle::resolve_file_path(from_concept, raw)
+}
+
+/// The information notes. Three design statements are reported as
+/// information rather than as findings. A stale deprecated concept
+/// is reported and not gated. A concept with no sources entry is
+/// reported as having no recorded provenance. A source with no
+/// recorded hash gets only the ordering fact between its file
+/// modification time and the concept generated time, never a
+/// verdict the data cannot support.
+pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
+    let mut notes = Vec::new();
+    for concept in &bundle.concepts {
+        if concept.status == "deprecated"
+            && let (Some(text), Some(stale_after)) =
+                (&concept.stale_after_text, concept.stale_after)
+            && clock.epoch_seconds >= stale_after
+        {
+            notes.push(InfoNote {
+                concept_id: concept.id.clone(),
+                text: format!(
+                    "stale since {text} and deprecated, reported as information and not as a finding"
+                ),
+            });
+        }
+        if concept.sources.is_empty() {
+            notes.push(InfoNote {
+                concept_id: concept.id.clone(),
+                text: "no recorded provenance, the concept carries no sources entry".to_string(),
+            });
+        }
+        for source in &concept.sources {
+            if source.sha256.is_some() {
+                continue;
+            }
+            let (Some(resource), Some(generated)) = (&source.resource, concept.generated_at) else {
+                continue;
+            };
+            let Some(path) = resolve_resource(&concept.id, resource) else {
+                continue;
+            };
+            let Some(modified) = bundle.source_modified.get(&path) else {
+                continue;
+            };
+            let ordering = match modified.cmp(&generated) {
+                std::cmp::Ordering::Greater => "was modified after the concept was generated",
+                std::cmp::Ordering::Less => "was modified before the concept was generated",
+                std::cmp::Ordering::Equal => {
+                    "was modified in the same second the concept was generated"
+                }
+            };
+            notes.push(InfoNote {
+                concept_id: concept.id.clone(),
+                text: format!(
+                    "source {} {ordering}, an ordering fact only and not a drift verdict",
+                    source.id.as_deref().unwrap_or("without an id")
+                ),
+            });
+        }
+    }
+    notes.sort_by(|a, b| a.concept_id.cmp(&b.concept_id).then(a.text.cmp(&b.text)));
+    notes
 }
 
 /// The drift check, extension level. A source that records a

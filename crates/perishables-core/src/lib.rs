@@ -18,7 +18,8 @@ mod frontmatter;
 mod hash;
 mod time;
 
-pub use bundle::{Bundle, Concept, SourceRef, VerifiedEvent};
+pub use bundle::{Bundle, Concept, Parameter, SourceRef, VerifiedEvent};
+pub use hash::sha256_hex;
 
 /// A pinned instant. The library never reads the system clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -95,6 +96,10 @@ pub enum FindingCode {
     /// Extension level. A source carries a recorded content hash
     /// and the bytes in the bundle no longer hash to it.
     SourceDrift,
+    /// A concept presents a value as attested, but the computation
+    /// behind it is missing or outside the executable profile, so
+    /// the audit cannot support the claim.
+    UnattestedClaim,
 }
 
 impl FindingCode {
@@ -112,6 +117,7 @@ impl FindingCode {
             FindingCode::MissingSource => "MISSING_SOURCE",
             FindingCode::AttestedResultMismatch => "ATTESTED_RESULT_MISMATCH",
             FindingCode::SourceDrift => "SOURCE_DRIFT",
+            FindingCode::UnattestedClaim => "UNATTESTED_CLAIM",
         }
     }
 }
@@ -251,4 +257,30 @@ pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
 /// proves it separates cleanly. Callers opt in explicitly.
 pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
     checks::check_drift(bundle)
+}
+
+/// One piece of information the design asks to be reported
+/// without being a finding. Stale deprecated concepts, concepts
+/// with no recorded provenance, and source ordering facts travel
+/// in this shape.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InfoNote {
+    /// The concept the note concerns.
+    pub concept_id: String,
+    /// The note, in plain words.
+    pub text: String,
+}
+
+/// The information notes for a bundle, implementing the three
+/// reported as information statements of the design record.
+pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
+    checks::info_notes(bundle, clock)
+}
+
+/// Sort findings into the deterministic report order, by concept
+/// id, then rule id, then detail. Every surface that prints
+/// findings uses this one ordering, so reports are byte identical
+/// across runs and commands.
+pub fn sort_findings(findings: &mut [Finding]) {
+    checks::sort_findings(findings)
 }

@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use perishables_cli::execute::{Verdict, mismatch_findings, run_computations};
+use perishables_cli::execute::{ExecConfig, Verdict, mismatch_findings, run_computations};
 use perishables_core::Bundle;
 
 fn fixture(name: &str) -> PathBuf {
@@ -16,13 +16,22 @@ fn fixture(name: &str) -> PathBuf {
 #[test]
 fn t5_attested_mismatch() {
     let bundle = Bundle::load(&fixture("t5-attested-mismatch")).expect("fixture loads");
-    let reports = run_computations(&bundle);
+    let reports = run_computations(&bundle, &ExecConfig::default());
     assert_eq!(reports.len(), 1, "one computation concept expected");
     let report = &reports[0];
     assert_eq!(report.concept_id, "computations/row-count");
     assert_eq!(report.claimed.as_deref(), Some("42"));
     assert_eq!(report.recomputed.as_deref(), Some("3"));
     assert_eq!(report.verdict, Verdict::Mismatch);
+    assert!(
+        report.artifact_hash.is_some(),
+        "the bound artifact hash is part of the report"
+    );
+    assert!(
+        report.elapsed_ms.is_some(),
+        "the run records its elapsed time"
+    );
+    assert_eq!(report.timeout_ms, Some(5_000));
     let findings = mismatch_findings(&reports);
     assert_eq!(findings.len(), 1);
     assert_eq!(
@@ -49,7 +58,7 @@ fn matching_claim_is_attested() {
     )
     .expect("concept");
     let bundle = Bundle::load(&dir).expect("bundle loads");
-    let reports = run_computations(&bundle);
+    let reports = run_computations(&bundle, &ExecConfig::default());
     assert_eq!(reports.len(), 1);
     assert_eq!(reports[0].verdict, Verdict::RecomputedMatch);
     assert!(mismatch_findings(&reports).is_empty());

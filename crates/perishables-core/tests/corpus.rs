@@ -244,6 +244,42 @@ fn later_round_fixtures_are_invisible_to_these_checks() {
 }
 
 #[test]
+fn exact_code_sets_for_must_fail_fixtures() {
+    // The design rule is that the build fails when a finding names
+    // the wrong rule, so presence is not enough. Each must fail
+    // fixture must produce exactly its labelled code set from the
+    // library checks, no more and no less.
+    let cases: [(&str, &[&str]); 12] = [
+        ("t1-lapsed", &["LAPSED_VERIFICATION"]),
+        ("t2-cycle-two", &["SUPERSESSION_CYCLE"]),
+        ("t2-cycle-three", &["SUPERSESSION_CYCLE"]),
+        ("t3-dangling-missing", &["DANGLING_SUPERSEDED_BY"]),
+        ("t3-dangling-escape", &["DANGLING_SUPERSEDED_BY"]),
+        ("t3-dangling-external", &["DANGLING_SUPERSEDED_BY"]),
+        ("t4-stale-stable", &["STALE_BUT_STABLE"]),
+        ("t6-provenance-footnote", &["UNRESOLVED_CITATION"]),
+        ("t6-provenance-missing-file", &["MISSING_SOURCE"]),
+        (
+            "t7-superseded-without-deprecated",
+            &["SUPERSEDED_WITHOUT_DEPRECATED"],
+        ),
+        ("t8-malformed-verification", &["MALFORMED_VERIFICATION"]),
+        ("t8-malformed-stale-after", &["UNPARSEABLE_STALE_AFTER"]),
+    ];
+    for (name, expected) in cases {
+        let bundle = load(name);
+        let findings = all_findings(&bundle);
+        let codes: std::collections::BTreeSet<&str> =
+            findings.iter().map(|f| f.code.label()).collect();
+        let expected: std::collections::BTreeSet<&str> = expected.iter().copied().collect();
+        assert_eq!(
+            codes, expected,
+            "{name} must produce exactly its labelled codes"
+        );
+    }
+}
+
+#[test]
 fn bundle_unchanged_by_audit() {
     // The auditor never mutates. Hash a fixture before and after a
     // full run of the checks and require identical bytes.
@@ -253,11 +289,20 @@ fn bundle_unchanged_by_audit() {
     let hash_tree = |dir: &std::path::Path| -> u64 {
         let mut hasher = DefaultHasher::new();
         let mut paths = Vec::new();
-        for entry in std::fs::read_dir(dir.join("metrics")).expect("metrics dir") {
-            paths.push(entry.expect("entry").path());
+        let mut stack = vec![dir.to_path_buf()];
+        while let Some(current) = stack.pop() {
+            for entry in std::fs::read_dir(&current).expect("fixture dir") {
+                let path = entry.expect("entry").path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else {
+                    paths.push(path);
+                }
+            }
         }
         paths.sort();
         for path in paths {
+            path.to_string_lossy().hash(&mut hasher);
             std::fs::read(&path).expect("read").hash(&mut hasher);
         }
         hasher.finish()

@@ -5,6 +5,8 @@
 //! crate stays free of external dependencies. A value that does not
 //! parse is reported as unparseable by the caller, never guessed.
 
+const SECONDS_PER_DAY: i64 = 86_400;
+
 /// Days from the civil date, after Howard Hinnant's algorithm.
 /// Returns days since 1970-01-01.
 fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
@@ -44,7 +46,7 @@ pub fn parse_timestamp(text: &str) -> Option<i64> {
     }
     let days = days_from_civil(year, month, day);
     let Some(time) = time_part else {
-        return Some(days * 86_400);
+        return Some(days * SECONDS_PER_DAY);
     };
     let (hms, offset_seconds) = if let Some(rest) = time.strip_suffix('Z') {
         (rest, 0)
@@ -71,7 +73,7 @@ pub fn parse_timestamp(text: &str) -> Option<i64> {
     if hour > 23 || minute > 59 || second > 60 {
         return None;
     }
-    Some(days * 86_400 + hour * 3600 + minute * 60 + second - offset_seconds)
+    Some(days * SECONDS_PER_DAY + hour * 3600 + minute * 60 + second - offset_seconds)
 }
 
 #[cfg(test)]

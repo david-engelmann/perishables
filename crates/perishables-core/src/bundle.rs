@@ -3,7 +3,10 @@
 //! Loading never writes. Files are read in sorted path order so a
 //! bundle always loads identically. Reserved files (`index.md` and
 //! `log.md`) and hidden paths are not concepts. A Markdown file is a
-//! concept when its frontmatter parses and carries a `type`.
+//! concept when its frontmatter parses and carries a `type`. A
+//! bundle root that cannot be read is an error, never an empty
+//! bundle, because an auditor that reports a clean pass over a
+//! bundle it could not read has failed at its only job.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -23,6 +26,16 @@ pub struct SourceRef {
     /// A recorded content hash for the resource, when the entry
     /// carries one under the `sha256` key.
     pub sha256: Option<String>,
+}
+
+/// One declared parameter of an Attested Computation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Parameter {
+    /// The parameter name.
+    pub name: String,
+    /// The declared value, when the bundle binds one. Values are
+    /// strings in the frontmatter and bind as strings.
+    pub value: Option<String>,
 }
 
 /// One verification event as recorded in frontmatter, before any
@@ -91,8 +104,13 @@ pub struct Concept {
     pub citations: Vec<String>,
     /// The declared runtime, for Attested Computation concepts.
     pub runtime: Option<String>,
+    /// The declared parameters, for Attested Computation concepts.
+    pub parameters: Vec<Parameter>,
     /// The fenced code blocks of the body, language and code.
     pub code_blocks: Vec<(String, String)>,
+    /// The text of a computation file the body links to, when the
+    /// computation lives in a file rather than inline.
+    pub file_code: Option<String>,
     /// The attested result the body claims, when it states one.
     pub claimed_result: Option<String>,
 }
@@ -112,6 +130,26 @@ pub struct Bundle {
     /// keyed by bundle relative path. Only those files are read
     /// into memory, because only the drift check needs bytes.
     pub source_bytes: std::collections::BTreeMap<String, Vec<u8>>,
+    /// Modification times of in bundle source files, as epoch
+    /// seconds, keyed by bundle relative path. The drift ordering
+    /// note reads these.
+    pub source_modified: std::collections::BTreeMap<String, i64>,
+}
+
+/// Whether a value carries a URI scheme, meaning a scheme token
+/// and a colon before any slash, as in `https:`, `mailto:`, or
+/// `urn:`. A value with a scheme is external by definition.
+pub(crate) fn has_uri_scheme(raw: &str) -> bool {
+    let Some(colon) = raw.find(':') else {
+        return false;
+    };
+    if raw[..colon].contains('/') {
+        return false;
+    }
+    let scheme = &raw[..colon];
+    let mut chars = scheme.chars();
+    chars.next().is_some_and(|c| c.is_ascii_alphabetic())
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
 }
 
 /// Resolve a path field to a bundle relative file path. A leading
@@ -120,7 +158,7 @@ pub struct Bundle {
 /// and paths that escape the bundle do not resolve.
 pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String> {
     let raw = raw.trim();
-    if raw.contains("://") {
+    if has_uri_scheme(raw) {
         return None;
     }
     let stripped = raw.strip_prefix('/').unwrap_or(raw);
@@ -150,26 +188,31 @@ pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String>
 impl Bundle {
     /// Whether the SPEC 12.1 fallbacks apply to this bundle. They
     /// apply when the bundle declares version 0.2 or earlier, or
-    /// declares no version at all.
+    /// declares no version at all. A declared version that does
+    /// not parse is treated as current, never as an old version,
+    /// because the fallback is granted to stated old versions and
+    /// to silence, not to garbage.
     pub fn uses_v02_fallback(&self) -> bool {
         match &self.okf_version {
             None => true,
             Some(version) => {
                 let mut parts = version.split('.');
-                let major: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
-                let minor: u32 = parts.next().and_then(|p| p.parse().ok()).unwrap_or(0);
+                let (Some(Ok(major)), Some(Ok(minor))) = (
+                    parts.next().map(|p| p.parse::<u32>()),
+                    parts.next().map(|p| p.parse::<u32>()),
+                ) else {
+                    return false;
+                };
                 (major, minor) <= (0, 2)
             }
         }
     }
-}
 
-impl Bundle {
     /// Load every concept under a bundle root directory.
     pub fn load(root: &Path) -> std::io::Result<Bundle> {
         let okf_version = read_okf_version(root);
         let mut inventory = Vec::new();
-        collect_files(root, &mut inventory);
+        collect_files(root, &mut inventory)?;
         let files: std::collections::BTreeSet<String> = inventory
             .iter()
             .map(|path| {
@@ -201,23 +244,30 @@ impl Bundle {
             }
             let rel = path.strip_prefix(root).unwrap_or(path);
             let id = to_posix_id(rel);
-            concepts.push(concept_from_frontmatter(id, &fm, &text));
+            concepts.push(concept_from_frontmatter(id, &fm, &text, root));
         }
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
         let mut source_bytes = std::collections::BTreeMap::new();
+        let mut source_modified = std::collections::BTreeMap::new();
         for concept in &concepts {
             for source in &concept.sources {
-                if source.sha256.is_none() {
-                    continue;
-                }
                 let Some(resource) = &source.resource else {
                     continue;
                 };
                 let Some(path) = resolve_file_path(&concept.id, resource) else {
                     continue;
                 };
-                if let Ok(bytes) = fs::read(root.join(&path)) {
-                    source_bytes.insert(path, bytes);
+                if !files.contains(&path) {
+                    continue;
+                }
+                if source.sha256.is_some() {
+                    source_bytes.insert(path.clone(), fs::read(root.join(&path))?);
+                }
+                if let Ok(metadata) = fs::metadata(root.join(&path))
+                    && let Ok(modified) = metadata.modified()
+                    && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
+                {
+                    source_modified.insert(path, duration.as_secs() as i64);
                 }
             }
         }
@@ -226,12 +276,14 @@ impl Bundle {
             okf_version,
             files: Some(files),
             source_bytes,
+            source_modified,
         })
     }
 
-    /// Build a bundle from in memory concepts. The corpus and unit
-    /// tests use this, and so can any consumer that parses bundles
-    /// its own way.
+    /// Build a bundle from in memory concepts. This is a
+    /// constructor for consumers that parse bundles their own way
+    /// and want the checks run over the result. Nothing in this
+    /// repository calls it today.
     pub fn from_concepts(mut concepts: Vec<Concept>) -> Bundle {
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
         Bundle {
@@ -239,6 +291,7 @@ impl Bundle {
             okf_version: None,
             files: None,
             source_bytes: std::collections::BTreeMap::new(),
+            source_modified: std::collections::BTreeMap::new(),
         }
     }
 
@@ -248,22 +301,22 @@ impl Bundle {
     }
 }
 
-fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(entries) = fs::read_dir(dir) else {
-        return;
-    };
-    for entry in entries.flatten() {
+fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    let entries = fs::read_dir(dir)?;
+    for entry in entries {
+        let entry = entry?;
         let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') {
             continue;
         }
         if path.is_dir() {
-            collect_files(&path, out);
+            collect_files(&path, out)?;
         } else {
             out.push(path);
         }
     }
+    Ok(())
 }
 
 /// The bundle index is a reserved file, not a concept, but it
@@ -281,7 +334,27 @@ fn to_posix_id(rel: &Path) -> String {
     text.strip_suffix(".md").unwrap_or(&text).to_string()
 }
 
-fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
+/// The first Python file a body links to, read as text. A
+/// computation may live in a file rather than in a fenced block.
+fn linked_python_file(id: &str, body: &str, root: &Path) -> Option<String> {
+    let mut rest = body;
+    while let Some(start) = rest.find("](") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find(')') else {
+            break;
+        };
+        let target = after[..end].trim();
+        if target.ends_with(".py")
+            && let Some(path) = resolve_file_path(id, target)
+        {
+            return fs::read_to_string(root.join(path)).ok();
+        }
+        rest = &after[end + 1..];
+    }
+    None
+}
+
+fn concept_from_frontmatter(id: String, fm: &Value, text: &str, root: &Path) -> Concept {
     let status = fm
         .get("status")
         .and_then(Value::as_str)
@@ -327,6 +400,20 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
             });
         }
     }
+    let mut parameters = Vec::new();
+    if let Some(value) = fm.get("parameters") {
+        for item in value.as_items() {
+            if let Some(name) = item.get("name").and_then(Value::as_str) {
+                parameters.push(Parameter {
+                    name: name.to_string(),
+                    value: item
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .map(str::to_string),
+                });
+            }
+        }
+    }
     let body = body_of(text);
     let citations = citation_labels(body);
     let runtime = fm
@@ -334,6 +421,7 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
         .and_then(Value::as_str)
         .map(str::to_string);
     let blocks = code_blocks(body);
+    let file_code = linked_python_file(&id, body, root);
     let claimed = claimed_result(body);
     let concept_type = fm
         .get("type")
@@ -353,7 +441,9 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
         sources,
         citations,
         runtime,
+        parameters,
         code_blocks: blocks,
+        file_code,
         claimed_result: claimed,
     }
 }

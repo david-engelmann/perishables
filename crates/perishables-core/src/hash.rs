@@ -80,7 +80,8 @@ pub fn sha256_hex(data: &[u8]) -> String {
     }
     let mut out = String::with_capacity(64);
     for word in state {
-        out.push_str(&format!("{word:08x}"));
+        use std::fmt::Write as _;
+        let _ = write!(out, "{word:08x}");
     }
     out
 }
