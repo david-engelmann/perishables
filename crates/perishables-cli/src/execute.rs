@@ -317,16 +317,16 @@ pub fn findings_from_reports(reports: &[ComputationReport]) -> Vec<Finding> {
                     report.recomputed.as_deref().unwrap_or("")
                 ),
             }),
-            Verdict::NotAttestable(reason) | Verdict::NotExecutableInProfile(reason) => {
-                if report.claimed.is_some() {
-                    findings.push(Finding {
-                        concept_id: report.concept_id.clone(),
-                        code: FindingCode::UnattestedClaim,
-                        detail: format!(
-                            "the bundle presents a value as attested but the computation cannot support it, {reason}"
-                        ),
-                    });
-                }
+            Verdict::NotAttestable(reason) | Verdict::NotExecutableInProfile(reason)
+                if report.claimed.is_some() =>
+            {
+                findings.push(Finding {
+                    concept_id: report.concept_id.clone(),
+                    code: FindingCode::UnattestedClaim,
+                    detail: format!(
+                        "the bundle presents a value as attested but the computation cannot support it, {reason}"
+                    ),
+                });
             }
             _ => {}
         }
