@@ -74,6 +74,13 @@ pub enum FindingCode {
     SupersessionCycle,
     /// `superseded_by` appears on a concept that is not deprecated.
     SupersededWithoutDeprecated,
+    /// The pinned instant is at or past `stale_after` and the
+    /// concept still presents as stable. Stale means check again,
+    /// it does not mean false.
+    StaleButStable,
+    /// A `stale_after` value does not parse as a timestamp. The
+    /// spec says such a value is never treated as fresh.
+    UnparseableStaleAfter,
 }
 
 impl FindingCode {
@@ -85,6 +92,8 @@ impl FindingCode {
             FindingCode::DanglingSupersededBy => "DANGLING_SUPERSEDED_BY",
             FindingCode::SupersessionCycle => "SUPERSESSION_CYCLE",
             FindingCode::SupersededWithoutDeprecated => "SUPERSEDED_WITHOUT_DEPRECATED",
+            FindingCode::StaleButStable => "STALE_BUT_STABLE",
+            FindingCode::UnparseableStaleAfter => "UNPARSEABLE_STALE_AFTER",
         }
     }
 }
@@ -193,4 +202,15 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
 /// locked interface.
 pub fn check_supersession(bundle: &Bundle) -> Vec<Finding> {
     checks::check_supersession(bundle)
+}
+
+/// Check freshness against the pinned clock. This is an auditor
+/// side check, not one of the four locked calls the upkeep engine
+/// consumes. A concept is stale when the pinned instant is at or
+/// past its `stale_after`. The finding fires only when a stale
+/// concept still presents as stable, and an unparseable
+/// `stale_after` is reported as malformed because the spec says it
+/// is never treated as fresh.
+pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
+    checks::check_freshness(bundle, clock)
 }

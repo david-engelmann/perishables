@@ -63,6 +63,10 @@ pub struct Concept {
     pub generated_at: Option<i64>,
     /// The raw `generated.at` text, when present.
     pub generated_text: Option<String>,
+    /// The raw `stale_after` text, when present.
+    pub stale_after_text: Option<String>,
+    /// The parsed `stale_after`, when present and parseable.
+    pub stale_after: Option<i64>,
     /// Recorded verification events, in document order.
     pub verified: Vec<VerifiedEvent>,
 }
@@ -186,6 +190,11 @@ fn concept_from_frontmatter(id: String, fm: &Value) -> Concept {
         .and_then(Value::as_str)
         .map(str::to_string);
     let generated_at = generated_text.as_deref().and_then(parse_timestamp);
+    let stale_after_text = fm
+        .get("stale_after")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let stale_after = stale_after_text.as_deref().and_then(parse_timestamp);
     let mut verified = Vec::new();
     if let Some(value) = fm.get("verified") {
         for item in value.as_items() {
@@ -201,6 +210,8 @@ fn concept_from_frontmatter(id: String, fm: &Value) -> Concept {
         superseded_by,
         generated_at,
         generated_text,
+        stale_after_text,
+        stale_after,
         verified,
     }
 }

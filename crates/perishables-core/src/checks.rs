@@ -262,6 +262,41 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
     }
 }
 
+/// The freshness check, implementing SPEC 5.5 as the design
+/// record states it. Stale means check again and does not mean
+/// false, and the finding wording says so. A stale deprecated
+/// concept no longer claims currency, so it is not a finding.
+pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for concept in &bundle.concepts {
+        let Some(text) = &concept.stale_after_text else {
+            continue;
+        };
+        match concept.stale_after {
+            None => findings.push(Finding {
+                concept_id: concept.id.clone(),
+                code: FindingCode::UnparseableStaleAfter,
+                detail: format!(
+                    "stale_after {text} does not parse, and an unparseable stale_after is never fresh"
+                ),
+            }),
+            Some(stale_after) => {
+                if clock.epoch_seconds >= stale_after && concept.status == "stable" {
+                    findings.push(Finding {
+                        concept_id: concept.id.clone(),
+                        code: FindingCode::StaleButStable,
+                        detail: format!(
+                            "stale_after {text} has passed at the pinned clock and the concept still presents as stable. Stale means check again, it does not mean false"
+                        ),
+                    });
+                }
+            }
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
 /// Call four of the locked interface. Check every supersession
 /// chain in a bundle, including the rule that `superseded_by` has
 /// meaning only on a deprecated concept.

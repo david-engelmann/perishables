@@ -11,7 +11,8 @@
 use std::path::PathBuf;
 
 use perishables_core::{
-    AuditClock, Bundle, FindingCode, Tier, check_currency, check_supersession, recompute_tier,
+    AuditClock, Bundle, FindingCode, Tier, check_currency, check_freshness, check_supersession,
+    recompute_tier,
 };
 
 fn corpus_fixture(name: &str) -> PathBuf {
@@ -27,6 +28,7 @@ fn clock() -> AuditClock {
 fn all_findings(bundle: &Bundle) -> Vec<perishables_core::Finding> {
     let mut findings = check_currency(bundle, &clock());
     findings.extend(check_supersession(bundle));
+    findings.extend(check_freshness(bundle, &clock()));
     findings
 }
 
@@ -138,13 +140,35 @@ fn clean_controls_pass() {
 }
 
 #[test]
+fn t4_stale_but_stable() {
+    let bundle = load("t4-stale-stable");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.code == FindingCode::StaleButStable && f.concept_id == "metrics/revenue"),
+        "t4 must report STALE_BUT_STABLE, got {findings:?}"
+    );
+}
+
+#[test]
+fn t8_unparseable_stale_after() {
+    let bundle = load("t8-malformed-stale-after");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.code == FindingCode::UnparseableStaleAfter),
+        "t8 stale_after must report UNPARSEABLE_STALE_AFTER, got {findings:?}"
+    );
+}
+
+#[test]
 fn later_round_fixtures_are_invisible_to_these_checks() {
     for name in [
-        "t4-stale-stable",
         "t5-attested-mismatch",
         "t6-provenance-footnote",
         "t6-provenance-missing-file",
-        "t8-malformed-stale-after",
         "t9-source-drift",
     ] {
         let bundle = load(name);
