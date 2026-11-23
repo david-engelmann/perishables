@@ -9,3 +9,5 @@ What changed. The CLI default findings set now includes check_drift, so the audi
 What did not change. The check itself is byte for byte the round 5 implementation. No expected result in the corpus changed, so the corpus version stays at 0.1.0 under the manifest versioning rules. Only set membership moved.
 
 Sequencing note. The promotion was seated only after the checkpoint fix pass verdict was read, green on head 5d39aed6, so the two changes never stacked unread.
+
+Landing. The promotion commit is 304a6675. Its first run failed at clippy on a single element loop left in the silence test when T9 left its list, repaired in 96656e4f, and the round is hosted green on the exact head 96656e4f, run 45188103451.
