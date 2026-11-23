@@ -212,13 +212,14 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
         let mut next =
             resolve_path(&current, &raw, false).filter(|id| bundle.concept(id).is_some());
         let mut via_fallback = false;
-        if next.is_none() && bundle.uses_v02_fallback() && !raw.trim().starts_with('/') {
-            if let Some(id) =
+        if next.is_none()
+            && bundle.uses_v02_fallback()
+            && !raw.trim().starts_with('/')
+            && let Some(id) =
                 resolve_path(&current, &raw, true).filter(|id| bundle.concept(id).is_some())
-            {
-                next = Some(id);
-                via_fallback = true;
-            }
+        {
+            next = Some(id);
+            via_fallback = true;
         }
         let Some(next) = next else {
             terminal = ChainTerminal::Dangling;
