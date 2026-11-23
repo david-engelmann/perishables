@@ -82,7 +82,11 @@ pub fn body_of(text: &str) -> &str {
     loop {
         let Some(end) = rest.find('\n') else {
             let line = rest.trim();
-            return if line == "---" || line == "..." { "" } else { text };
+            return if line == "---" || line == "..." {
+                ""
+            } else {
+                text
+            };
         };
         let line = rest[..end].trim();
         if line == "---" || line == "..." {
