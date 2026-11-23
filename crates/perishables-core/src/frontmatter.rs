@@ -157,11 +157,23 @@ pub fn claimed_result(body: &str) -> Option<String> {
     let claimed = lower_after.find("claimed")?;
     let rest = &after[claimed + "claimed".len()..];
     let is = rest.find(" is ")?;
-    let token: String = rest[is + 4..]
+    let mut chars = rest[is + 4..]
         .chars()
         .skip_while(|c| c.is_whitespace() || *c == '"' || *c == '`')
-        .take_while(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-' || *c == '_')
-        .collect();
+        .peekable();
+    let mut token = String::new();
+    while let Some(c) = chars.next() {
+        if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+            token.push(c);
+        } else if c == '.' && chars.peek().is_some_and(|next| next.is_ascii_digit()) {
+            // A dot belongs to the value only as a decimal point,
+            // never as the full stop that ends the sentence.
+            token.push(c);
+        } else {
+            break;
+        }
+    }
+    let token = token.trim_end_matches('.').to_string();
     if token.is_empty() { None } else { Some(token) }
 }
 
