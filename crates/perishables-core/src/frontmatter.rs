@@ -199,23 +199,6 @@ fn unquote(text: &str) -> String {
 /// entry is a simple key, then a colon, then a space or the end of
 /// the line. A bare URL fails the test because its colon is
 /// followed by slashes, not a space, so URLs stay scalars.
-/// Parse one block list item that is a mapping, starting with the
-/// text after the dash and continuing over the lines more indented
-/// than the dash. Returns the value and the position after it.
-fn parse_map_item(lines: &[Line], pos: usize, indent: usize, first: &str) -> (Value, usize) {
-    let mut synthetic: Vec<Line> = vec![Line {
-        indent,
-        text: first.to_string(),
-    }];
-    let mut j = pos + 1;
-    while j < lines.len() && lines[j].indent > indent {
-        synthetic.push(lines[j].clone());
-        j += 1;
-    }
-    let (value, _) = parse_block(&synthetic, 0, indent);
-    (value, j)
-}
-
 fn looks_like_mapping_entry(text: &str) -> bool {
     match text.split_once(':') {
         Some((key, rest)) => {
