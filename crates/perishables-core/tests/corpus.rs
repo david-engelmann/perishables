@@ -235,14 +235,15 @@ fn drift_separates_cleanly() {
 
 #[test]
 fn later_round_fixtures_are_invisible_to_these_checks() {
-    for name in ["t5-attested-mismatch"] {
-        let bundle = load(name);
-        let findings = all_findings(&bundle);
-        assert!(
-            findings.is_empty(),
-            "{name} belongs to a later round and must be silent here, got {findings:?}"
-        );
-    }
+    // One fixture remains. The attested mismatch defect is
+    // invisible to the library checks by design, because re
+    // execution lives in the adapter crate.
+    let bundle = load("t5-attested-mismatch");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings.is_empty(),
+        "t5-attested-mismatch belongs to the adapter round and must be silent here, got {findings:?}"
+    );
 }
 
 #[test]
