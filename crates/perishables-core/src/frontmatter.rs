@@ -72,18 +72,24 @@ pub fn parse_frontmatter(text: &str) -> Option<Value> {
 /// frontmatter block.
 pub fn body_of(text: &str) -> &str {
     let text = text.strip_prefix('\u{feff}').unwrap_or(text);
-    let mut lines = text.lines();
-    if lines.next().map(str::trim) != Some("---") {
+    let Some(first_end) = text.find('\n') else {
+        return text;
+    };
+    if text[..first_end].trim() != "---" {
         return text;
     }
-    let mut offset = text.len() - lines.as_str().len();
-    for line in lines {
-        offset += line.len() + 1;
-        if line.trim() == "---" || line.trim() == "..." {
-            return text[offset.min(text.len())..].trim_start_matches(['\n', '\r']);
+    let mut rest = &text[first_end + 1..];
+    loop {
+        let Some(end) = rest.find('\n') else {
+            let line = rest.trim();
+            return if line == "---" || line == "..." { "" } else { text };
+        };
+        let line = rest[..end].trim();
+        if line == "---" || line == "..." {
+            return &rest[end + 1..];
         }
+        rest = &rest[end + 1..];
     }
-    text
 }
 
 /// The footnote labels a body cites, as in `[^audit-memo]`, in
