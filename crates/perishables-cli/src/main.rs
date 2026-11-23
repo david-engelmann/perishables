@@ -15,8 +15,8 @@
 //! fixture label, states the corpus and auditor versions, compares
 //! the auditor output against the labels exactly, verifies that
 //! each fixture is byte unchanged by the run, and fails when any
-//! fixture disagrees. The drift command runs the extension level
-//! drift check only.
+//! fixture disagrees. The drift command runs the drift check on
+//! its own.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -64,13 +64,15 @@ fn print_findings(findings: &[Finding]) {
 }
 
 /// The default gate findings for a bundle, meaning the library
-/// checks plus the re execution findings. Drift is extension
-/// level and is never part of this set.
+/// checks plus the re execution findings. Drift is part of this
+/// set since its promotion on 2026-11-23, which David ruled after
+/// the corpus separation evidence was in.
 fn default_findings(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     let mut findings = check_currency(bundle, clock);
     findings.extend(check_supersession(bundle));
     findings.extend(check_freshness(bundle, clock));
     findings.extend(check_provenance(bundle));
+    findings.extend(check_drift(bundle));
     findings.extend(findings_from_reports(&run_computations(
         bundle,
         &ExecConfig::from_env(),
@@ -170,8 +172,9 @@ fn audit(args: &[String]) -> ExitCode {
     }
 }
 
-/// The extension level drift check, run only when asked for by
-/// name. It is not part of the default audit gate.
+/// The drift check on its own, for a focused view. Drift is part
+/// of the default audit gate since its promotion, and this
+/// command remains for running it alone.
 fn drift(args: &[String]) -> ExitCode {
     let Some(bundle_path) = args.first() else {
         eprintln!("drift needs a bundle directory");
@@ -323,11 +326,7 @@ fn corpus(args: &[String]) -> ExitCode {
                 return ExitCode::from(2);
             }
         };
-        let mut findings = default_findings(&bundle, &clock);
-        if label.set == "extension" {
-            findings.extend(check_drift(&bundle));
-            sort_findings(&mut findings);
-        }
+        let findings = default_findings(&bundle, &clock);
         let after = hash_tree(&fixture);
         let codes: BTreeSet<String> = findings
             .iter()
@@ -349,8 +348,9 @@ fn corpus(args: &[String]) -> ExitCode {
             failures += 1;
         }
         println!(
-            "FIXTURE {} {} findings={} unchanged={}",
+            "FIXTURE {} set={} {} findings={} unchanged={}",
             name,
+            label.set,
             if pass { "PASS" } else { "FAIL" },
             findings.len(),
             unchanged

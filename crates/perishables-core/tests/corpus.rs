@@ -32,6 +32,7 @@ fn all_findings(bundle: &Bundle) -> Vec<perishables_core::Finding> {
     findings.extend(check_supersession(bundle));
     findings.extend(check_freshness(bundle, &clock()));
     findings.extend(check_provenance(bundle));
+    findings.extend(check_drift(bundle));
     findings
 }
 
@@ -187,7 +188,7 @@ fn t6_provenance_defects() {
 }
 
 #[test]
-fn t9_source_drift_extension() {
+fn t9_source_drift() {
     let bundle = load("t9-source-drift");
     let findings = check_drift(&bundle);
     assert_eq!(
@@ -201,9 +202,10 @@ fn t9_source_drift_extension() {
 
 #[test]
 fn drift_separates_cleanly() {
-    // The extension check must stay silent on every other fixture,
-    // which is the separation evidence the design record asks for
-    // before drift can join the default gate.
+    // The check must stay silent on every other fixture. This was
+    // the separation evidence the design record asked for before
+    // drift could join the default gate, and it stands as the
+    // regression guard now that the promotion has happened.
     for name in [
         "t1-lapsed",
         "t2-cycle-two",
@@ -233,7 +235,7 @@ fn drift_separates_cleanly() {
 
 #[test]
 fn later_round_fixtures_are_invisible_to_these_checks() {
-    for name in ["t5-attested-mismatch", "t9-source-drift"] {
+    for name in ["t5-attested-mismatch"] {
         let bundle = load(name);
         let findings = all_findings(&bundle);
         assert!(
@@ -249,7 +251,7 @@ fn exact_code_sets_for_must_fail_fixtures() {
     // the wrong rule, so presence is not enough. Each must fail
     // fixture must produce exactly its labelled code set from the
     // library checks, no more and no less.
-    let cases: [(&str, &[&str]); 12] = [
+    let cases: [(&str, &[&str]); 13] = [
         ("t1-lapsed", &["LAPSED_VERIFICATION"]),
         ("t2-cycle-two", &["SUPERSESSION_CYCLE"]),
         ("t2-cycle-three", &["SUPERSESSION_CYCLE"]),
@@ -265,6 +267,7 @@ fn exact_code_sets_for_must_fail_fixtures() {
         ),
         ("t8-malformed-verification", &["MALFORMED_VERIFICATION"]),
         ("t8-malformed-stale-after", &["UNPARSEABLE_STALE_AFTER"]),
+        ("t9-source-drift", &["SOURCE_DRIFT"]),
     ];
     for (name, expected) in cases {
         let bundle = load(name);

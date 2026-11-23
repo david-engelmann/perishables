@@ -350,7 +350,7 @@ pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
     notes
 }
 
-/// The drift check, extension level. A source that records a
+/// The drift check. A source that records a
 /// content hash is rehashed from the bytes loaded with the bundle,
 /// and a mismatch is drift. A missing file is the provenance
 /// check's finding, not this one's, and an external resource is

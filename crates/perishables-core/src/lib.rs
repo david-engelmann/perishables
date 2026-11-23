@@ -93,8 +93,8 @@ pub enum FindingCode {
     /// its result differs from the attested result the bundle
     /// claims.
     AttestedResultMismatch,
-    /// Extension level. A source carries a recorded content hash
-    /// and the bytes in the bundle no longer hash to it.
+    /// A source carries a recorded content hash and the bytes in
+    /// the bundle no longer hash to it.
     SourceDrift,
     /// A concept presents a value as attested, but the computation
     /// behind it is missing or outside the executable profile, so
@@ -250,11 +250,11 @@ pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
     checks::check_provenance(bundle)
 }
 
-/// Check source drift, the extension level check. A source that
-/// records a content hash is rehashed from the bytes in the
-/// bundle, and a mismatch is drift. This check stays out of the
-/// default gate, as the design record rules, until the corpus
-/// proves it separates cleanly. Callers opt in explicitly.
+/// Check source drift. A source that records a content hash is
+/// rehashed from the bytes in the bundle, and a mismatch is
+/// drift. This check began at extension level and joined the
+/// default gate on 2026-11-23, when David ruled the promotion
+/// after the corpus separation evidence was in.
 pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
     checks::check_drift(bundle)
 }

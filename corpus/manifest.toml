@@ -90,7 +90,7 @@ expected_finding = "UNPARSEABLE_STALE_AFTER"
 [[fixture]]
 name = "t9-source-drift"
 taxonomy = "T9"
-set = "extension"
+set = "gate"
 expect = "fail"
 expected_finding = "SOURCE_DRIFT"
 

@@ -1,6 +1,6 @@
 fixture = "t9-source-drift"
 taxonomy = "T9"
-set = "extension"
+set = "gate"
 expect = "fail"
 expected_finding = "SOURCE_DRIFT"
 concept = "metrics/revenue"
