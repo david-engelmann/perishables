@@ -11,8 +11,8 @@
 use std::path::PathBuf;
 
 use perishables_core::{
-    AuditClock, Bundle, FindingCode, Tier, check_currency, check_freshness, check_supersession,
-    recompute_tier,
+    AuditClock, Bundle, FindingCode, Tier, check_currency, check_freshness, check_provenance,
+    check_supersession, recompute_tier,
 };
 
 fn corpus_fixture(name: &str) -> PathBuf {
@@ -29,6 +29,7 @@ fn all_findings(bundle: &Bundle) -> Vec<perishables_core::Finding> {
     let mut findings = check_currency(bundle, &clock());
     findings.extend(check_supersession(bundle));
     findings.extend(check_freshness(bundle, &clock()));
+    findings.extend(check_provenance(bundle));
     findings
 }
 
@@ -164,13 +165,28 @@ fn t8_unparseable_stale_after() {
 }
 
 #[test]
+fn t6_provenance_defects() {
+    let bundle = load("t6-provenance-footnote");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.code == FindingCode::UnresolvedCitation),
+        "footnote fixture must report UNRESOLVED_CITATION, got {findings:?}"
+    );
+    let bundle = load("t6-provenance-missing-file");
+    let findings = all_findings(&bundle);
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.code == FindingCode::MissingSource),
+        "missing file fixture must report MISSING_SOURCE, got {findings:?}"
+    );
+}
+
+#[test]
 fn later_round_fixtures_are_invisible_to_these_checks() {
-    for name in [
-        "t5-attested-mismatch",
-        "t6-provenance-footnote",
-        "t6-provenance-missing-file",
-        "t9-source-drift",
-    ] {
+    for name in ["t5-attested-mismatch", "t9-source-drift"] {
         let bundle = load(name);
         let findings = all_findings(&bundle);
         assert!(

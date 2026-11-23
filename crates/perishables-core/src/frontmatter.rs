@@ -67,6 +67,46 @@ pub fn parse_frontmatter(text: &str) -> Option<Value> {
     None
 }
 
+/// The body of a Markdown document, meaning everything after the
+/// frontmatter block. Returns the whole text when there is no
+/// frontmatter block.
+pub fn body_of(text: &str) -> &str {
+    let text = text.strip_prefix('\u{feff}').unwrap_or(text);
+    let mut lines = text.lines();
+    if lines.next().map(str::trim) != Some("---") {
+        return text;
+    }
+    let mut offset = text.len() - lines.as_str().len();
+    for line in lines {
+        offset += line.len() + 1;
+        if line.trim() == "---" || line.trim() == "..." {
+            return text[offset.min(text.len())..].trim_start_matches(['\n', '\r']);
+        }
+    }
+    text
+}
+
+/// The footnote labels a body cites, as in `[^audit-memo]`, in
+/// first appearance order without duplicates. A label counts when
+/// it appears as a reference or as a footnote definition, because
+/// both claim an attribution.
+pub fn citation_labels(body: &str) -> Vec<String> {
+    let mut labels: Vec<String> = Vec::new();
+    let mut rest = body;
+    while let Some(start) = rest.find("[^") {
+        let after = &rest[start + 2..];
+        let Some(end) = after.find(']') else {
+            break;
+        };
+        let label = after[..end].trim().to_string();
+        if !label.is_empty() && !labels.contains(&label) {
+            labels.push(label);
+        }
+        rest = &after[end + 1..];
+    }
+    labels
+}
+
 fn indent_of(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }

@@ -17,7 +17,7 @@ mod checks;
 mod frontmatter;
 mod time;
 
-pub use bundle::{Bundle, Concept, VerifiedEvent};
+pub use bundle::{Bundle, Concept, SourceRef, VerifiedEvent};
 
 /// A pinned instant. The library never reads the system clock.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -81,6 +81,12 @@ pub enum FindingCode {
     /// A `stale_after` value does not parse as a timestamp. The
     /// spec says such a value is never treated as fresh.
     UnparseableStaleAfter,
+    /// The body cites a footnote label that no `sources` entry
+    /// carries as its id, so the attribution resolves to nothing.
+    UnresolvedCitation,
+    /// A `sources` entry points at an in bundle resource that is
+    /// not in the bundle.
+    MissingSource,
 }
 
 impl FindingCode {
@@ -94,6 +100,8 @@ impl FindingCode {
             FindingCode::SupersededWithoutDeprecated => "SUPERSEDED_WITHOUT_DEPRECATED",
             FindingCode::StaleButStable => "STALE_BUT_STABLE",
             FindingCode::UnparseableStaleAfter => "UNPARSEABLE_STALE_AFTER",
+            FindingCode::UnresolvedCitation => "UNRESOLVED_CITATION",
+            FindingCode::MissingSource => "MISSING_SOURCE",
         }
     }
 }
@@ -213,4 +221,15 @@ pub fn check_supersession(bundle: &Bundle) -> Vec<Finding> {
 /// is never treated as fresh.
 pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     checks::check_freshness(bundle, clock)
+}
+
+/// Check provenance completeness. Also an auditor side check, not
+/// one of the locked four. A footnote label the body cites with no
+/// matching `sources` id is an unresolved citation, and a
+/// `sources` entry whose resource is an in bundle path that does
+/// not resolve is a missing source. External resources are never
+/// fetched, so they are never findings. A concept with no sources
+/// at all records no provenance and is not a finding.
+pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
+    checks::check_provenance(bundle)
 }

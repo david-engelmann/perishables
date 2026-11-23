@@ -297,6 +297,81 @@ pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     findings
 }
 
+/// Resolve a source resource to a bundle relative file path.
+/// External resources do not resolve, by design, because the audit
+/// never fetches them.
+fn resolve_resource(from_concept: &str, raw: &str) -> Option<String> {
+    let raw = raw.trim();
+    if raw.contains("://") {
+        return None;
+    }
+    let stripped = raw.strip_prefix('/').unwrap_or(raw);
+    let combined = if raw.starts_with('/') {
+        stripped.to_string()
+    } else {
+        let parent = from_concept.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
+        if parent.is_empty() {
+            stripped.to_string()
+        } else {
+            format!("{parent}/{stripped}")
+        }
+    };
+    let mut parts: Vec<&str> = Vec::new();
+    for segment in combined.split('/') {
+        match segment {
+            "" | "." => {}
+            ".." => {
+                parts.pop()?;
+            }
+            other => parts.push(other),
+        }
+    }
+    Some(parts.join("/"))
+}
+
+/// The provenance check, implementing the design record section
+/// on stated facts only. Citations resolve against source ids, and
+/// in bundle resources resolve against the file inventory.
+pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for concept in &bundle.concepts {
+        for label in &concept.citations {
+            let resolved = concept
+                .sources
+                .iter()
+                .any(|source| source.id.as_deref() == Some(label.as_str()));
+            if !resolved {
+                findings.push(Finding {
+                    concept_id: concept.id.clone(),
+                    code: FindingCode::UnresolvedCitation,
+                    detail: format!("body cites [^{label}] but no sources entry carries that id"),
+                });
+            }
+        }
+        if let Some(files) = &bundle.files {
+            for source in &concept.sources {
+                let Some(resource) = &source.resource else {
+                    continue;
+                };
+                if let Some(path) = resolve_resource(&concept.id, resource)
+                    && !files.contains(&path)
+                {
+                    findings.push(Finding {
+                        concept_id: concept.id.clone(),
+                        code: FindingCode::MissingSource,
+                        detail: format!(
+                            "source {} points at {resource}, which is not in the bundle",
+                            source.id.as_deref().unwrap_or("without an id")
+                        ),
+                    });
+                }
+            }
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
 /// Call four of the locked interface. Check every supersession
 /// chain in a bundle, including the rule that `superseded_by` has
 /// meaning only on a deprecated concept.

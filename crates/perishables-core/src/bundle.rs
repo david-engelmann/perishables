@@ -8,8 +8,17 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::frontmatter::{Value, parse_frontmatter};
+use crate::frontmatter::{Value, body_of, citation_labels, parse_frontmatter};
 use crate::time::parse_timestamp;
+
+/// One entry of a concept `sources` list.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SourceRef {
+    /// The source id, when the entry carries one.
+    pub id: Option<String>,
+    /// The resource the entry points at, when it carries one.
+    pub resource: Option<String>,
+}
 
 /// One verification event as recorded in frontmatter, before any
 /// judgement about its currency or shape.
@@ -69,6 +78,10 @@ pub struct Concept {
     pub stale_after: Option<i64>,
     /// Recorded verification events, in document order.
     pub verified: Vec<VerifiedEvent>,
+    /// The concept recorded sources.
+    pub sources: Vec<SourceRef>,
+    /// The footnote labels the concept body cites.
+    pub citations: Vec<String>,
 }
 
 /// A loaded bundle.
@@ -78,6 +91,10 @@ pub struct Bundle {
     pub concepts: Vec<Concept>,
     /// The `okf_version` declared by the bundle index, when any.
     pub okf_version: Option<String>,
+    /// Every file in the bundle as a posix relative path, when the
+    /// bundle was loaded from disk. In memory bundles carry none,
+    /// and checks that need the inventory say so by skipping.
+    pub files: Option<std::collections::BTreeSet<String>>,
 }
 
 impl Bundle {
@@ -101,26 +118,46 @@ impl Bundle {
     /// Load every concept under a bundle root directory.
     pub fn load(root: &Path) -> std::io::Result<Bundle> {
         let okf_version = read_okf_version(root);
-        let mut files = Vec::new();
-        collect_markdown(root, &mut files);
-        files.sort();
+        let mut inventory = Vec::new();
+        collect_files(root, &mut inventory);
+        let files: std::collections::BTreeSet<String> = inventory
+            .iter()
+            .map(|path| {
+                path.strip_prefix(root)
+                    .unwrap_or(path)
+                    .to_string_lossy()
+                    .replace('\\', "/")
+            })
+            .collect();
+        let mut markdown: Vec<&PathBuf> = inventory
+            .iter()
+            .filter(|path| {
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                name.ends_with(".md") && name != "index.md" && name != "log.md"
+            })
+            .collect();
+        markdown.sort();
         let mut concepts = Vec::new();
-        for path in files {
-            let text = fs::read_to_string(&path)?;
+        for path in markdown {
+            let text = fs::read_to_string(path)?;
             let Some(fm) = parse_frontmatter(&text) else {
                 continue;
             };
             if fm.get("type").and_then(Value::as_str).is_none() {
                 continue;
             }
-            let rel = path.strip_prefix(root).unwrap_or(&path);
+            let rel = path.strip_prefix(root).unwrap_or(path);
             let id = to_posix_id(rel);
-            concepts.push(concept_from_frontmatter(id, &fm));
+            concepts.push(concept_from_frontmatter(id, &fm, &text));
         }
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
         Ok(Bundle {
             concepts,
             okf_version,
+            files: Some(files),
         })
     }
 
@@ -132,6 +169,7 @@ impl Bundle {
         Bundle {
             concepts,
             okf_version: None,
+            files: None,
         }
     }
 
@@ -141,7 +179,7 @@ impl Bundle {
     }
 }
 
-fn collect_markdown(dir: &Path, out: &mut Vec<PathBuf>) {
+fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {
         return;
     };
@@ -152,8 +190,8 @@ fn collect_markdown(dir: &Path, out: &mut Vec<PathBuf>) {
             continue;
         }
         if path.is_dir() {
-            collect_markdown(&path, out);
-        } else if name.ends_with(".md") && name != "index.md" && name != "log.md" {
+            collect_files(&path, out);
+        } else {
             out.push(path);
         }
     }
@@ -174,7 +212,7 @@ fn to_posix_id(rel: &Path) -> String {
     text.strip_suffix(".md").unwrap_or(&text).to_string()
 }
 
-fn concept_from_frontmatter(id: String, fm: &Value) -> Concept {
+fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
     let status = fm
         .get("status")
         .and_then(Value::as_str)
@@ -204,6 +242,19 @@ fn concept_from_frontmatter(id: String, fm: &Value) -> Concept {
             verified.push(VerifiedEvent { by, at_text, at });
         }
     }
+    let mut sources = Vec::new();
+    if let Some(value) = fm.get("sources") {
+        for item in value.as_items() {
+            sources.push(SourceRef {
+                id: item.get("id").and_then(Value::as_str).map(str::to_string),
+                resource: item
+                    .get("resource")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+            });
+        }
+    }
+    let citations = citation_labels(body_of(text));
     Concept {
         id,
         status,
@@ -213,5 +264,7 @@ fn concept_from_frontmatter(id: String, fm: &Value) -> Concept {
         stale_after_text,
         stale_after,
         verified,
+        sources,
+        citations,
     }
 }
