@@ -87,6 +87,10 @@ pub enum FindingCode {
     /// A `sources` entry points at an in bundle resource that is
     /// not in the bundle.
     MissingSource,
+    /// An Attested Computation ran cleanly under re execution and
+    /// its result differs from the attested result the bundle
+    /// claims.
+    AttestedResultMismatch,
 }
 
 impl FindingCode {
@@ -102,6 +106,7 @@ impl FindingCode {
             FindingCode::UnparseableStaleAfter => "UNPARSEABLE_STALE_AFTER",
             FindingCode::UnresolvedCitation => "UNRESOLVED_CITATION",
             FindingCode::MissingSource => "MISSING_SOURCE",
+            FindingCode::AttestedResultMismatch => "ATTESTED_RESULT_MISMATCH",
         }
     }
 }

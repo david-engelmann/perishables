@@ -2,11 +2,13 @@
 //! fixture in the golden corpus and compares the outcome with the
 //! fixture label for the rules this round implements.
 //!
-//! Fixtures whose defects belong to later rounds (stale, attested
-//! mismatch, provenance, drift, unparseable stale_after) must
-//! produce no findings from these four checks today. When a later
-//! round implements one of those rules, its fixture moves into the
-//! expected-fail table in the same change.
+//! Fixtures whose defects belong to later rounds must produce no
+//! findings from the library checks. When a later round implements
+//! one of those rules, its fixture moves into the expected-fail
+//! table in the same change. The attested mismatch fixture is the
+//! one exception in shape only. Its defect is invisible to the
+//! library checks by design, because re execution lives in the
+//! adapter crate, and its gate is the CLI corpus test there.
 
 use std::path::PathBuf;
 

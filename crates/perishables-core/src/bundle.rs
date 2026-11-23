@@ -8,7 +8,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::frontmatter::{Value, body_of, citation_labels, parse_frontmatter};
+use crate::frontmatter::{
+    Value, body_of, citation_labels, claimed_result, code_blocks, parse_frontmatter,
+};
 use crate::time::parse_timestamp;
 
 /// One entry of a concept `sources` list.
@@ -64,6 +66,8 @@ impl VerifiedEvent {
 pub struct Concept {
     /// Bundle relative path without the `.md` suffix, posix style.
     pub id: String,
+    /// The concept type, such as Metric or Attested Computation.
+    pub concept_type: String,
     /// The lifecycle status. Absent status means stable.
     pub status: String,
     /// The raw `superseded_by` value, when present.
@@ -82,6 +86,12 @@ pub struct Concept {
     pub sources: Vec<SourceRef>,
     /// The footnote labels the concept body cites.
     pub citations: Vec<String>,
+    /// The declared runtime, for Attested Computation concepts.
+    pub runtime: Option<String>,
+    /// The fenced code blocks of the body, language and code.
+    pub code_blocks: Vec<(String, String)>,
+    /// The attested result the body claims, when it states one.
+    pub claimed_result: Option<String>,
 }
 
 /// A loaded bundle.
@@ -254,9 +264,22 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
             });
         }
     }
-    let citations = citation_labels(body_of(text));
+    let body = body_of(text);
+    let citations = citation_labels(body);
+    let runtime = fm
+        .get("runtime")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    let blocks = code_blocks(body);
+    let claimed = claimed_result(body);
+    let concept_type = fm
+        .get("type")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
     Concept {
         id,
+        concept_type,
         status,
         superseded_by,
         generated_at,
@@ -266,5 +289,8 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str) -> Concept {
         verified,
         sources,
         citations,
+        runtime,
+        code_blocks: blocks,
+        claimed_result: claimed,
     }
 }

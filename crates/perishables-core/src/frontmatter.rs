@@ -117,6 +117,54 @@ pub fn citation_labels(body: &str) -> Vec<String> {
     labels
 }
 
+/// The fenced code blocks of a body, as language and code pairs.
+/// Attested Computation concepts carry their computation this way.
+pub fn code_blocks(body: &str) -> Vec<(String, String)> {
+    let mut blocks = Vec::new();
+    let mut current: Option<(String, String)> = None;
+    for line in body.lines() {
+        let trimmed = line.trim();
+        match &mut current {
+            None => {
+                if let Some(lang) = trimmed.strip_prefix("```") {
+                    current = Some((lang.trim().to_string(), String::new()));
+                }
+            }
+            Some((_, code)) => {
+                if trimmed == "```" {
+                    let (lang, code) = current.take().expect("open block");
+                    blocks.push((lang, code));
+                } else {
+                    code.push_str(line);
+                    code.push('\n');
+                }
+            }
+        }
+    }
+    blocks
+}
+
+/// The attested result a concept body claims, under the v1 corpus
+/// profile convention. The claim lives in a Claimed result section
+/// and is the first value stated after the word claimed, as in
+/// "The attested result claimed for this computation is 42." A
+/// body without such a statement claims nothing.
+pub fn claimed_result(body: &str) -> Option<String> {
+    let lower = body.to_lowercase();
+    let section = lower.find("claimed result")?;
+    let after = &body[section..];
+    let lower_after = &lower[section..];
+    let claimed = lower_after.find("claimed")?;
+    let rest = &after[claimed + "claimed".len()..];
+    let is = rest.find(" is ")?;
+    let token: String = rest[is + 4..]
+        .chars()
+        .skip_while(|c| c.is_whitespace() || *c == '"' || *c == '`')
+        .take_while(|c| c.is_ascii_alphanumeric() || *c == '.' || *c == '-' || *c == '_')
+        .collect();
+    if token.is_empty() { None } else { Some(token) }
+}
+
 fn indent_of(line: &str) -> usize {
     line.len() - line.trim_start().len()
 }

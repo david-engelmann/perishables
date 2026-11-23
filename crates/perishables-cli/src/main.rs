@@ -12,6 +12,7 @@
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
+use perishables_cli::execute::{mismatch_findings, run_computations};
 use perishables_core::{
     AuditClock, Bundle, check_currency, check_freshness, check_provenance, check_supersession,
     recompute_tier,
@@ -86,6 +87,7 @@ fn audit(args: &[String]) -> ExitCode {
     findings.extend(check_supersession(&bundle));
     findings.extend(check_freshness(&bundle, &clock));
     findings.extend(check_provenance(&bundle));
+    findings.extend(mismatch_findings(&run_computations(&bundle)));
     findings.sort_by(|a, b| {
         a.concept_id
             .cmp(&b.concept_id)
