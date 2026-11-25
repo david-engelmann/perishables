@@ -42,6 +42,9 @@
 //! Slice 5 adds the Cube reader, the fourth ecosystem the
 //! design record names, on its meta JSON. See cube.rs.
 //!
+//! Slice 6 adds the Looker reader, on the API's assembled
+//! view and explore documents. See looker.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
@@ -49,6 +52,7 @@
 mod cube;
 mod databricks;
 mod json;
+mod looker;
 mod ossie;
 mod snowflake;
 mod yaml;
@@ -58,6 +62,7 @@ use std::collections::BTreeMap;
 pub use cube::read_cube_definition;
 pub use databricks::read_databricks_definition;
 pub use json::Json;
+pub use looker::read_looker_definition;
 pub use ossie::read_ossie_definition;
 pub use snowflake::read_snowflake_definition;
 
