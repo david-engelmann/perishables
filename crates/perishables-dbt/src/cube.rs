@@ -147,7 +147,7 @@ fn collect_view_selection(object: &Json, view: &str, def: &mut Definition) {
     if !refs.is_empty() {
         def.metrics.push(Metric {
             name: view.to_string(),
-            label: None,
+            label: Some(view.to_string()),
             // The selection is a reader construct, not a user
             // definition, so it carries a plain description
             // rather than tripping the coverage notes.

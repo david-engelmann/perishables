@@ -32,10 +32,11 @@ fn clean_view_grades_clean_when_verification_is_current() {
         "a current verification must grade clean, got {findings:?}"
     );
     let found_notes = notes(&def);
-    assert!(
-        found_notes.is_empty(),
-        "everything described and stamped, got {found_notes:?}"
-    );
+    // Everything is described and stamped. No item carries
+    // a label, and the two dimensions carry no synonyms, so
+    // the notes are the coverage family on those questions,
+    // five in all.
+    assert_eq!(found_notes.len(), 5, "got {found_notes:?}");
 }
 
 #[test]
@@ -51,10 +52,17 @@ fn verification_predating_the_change_is_lapsed() {
     assert_eq!(findings[0].code, Code::LapsedVerifiedQuery);
     assert_eq!(findings[0].item, "total_revenue_check");
     // The unstamped query is a coverage matter, two notes, and
-    // never a second finding.
+    // never a second finding. The fixture's one measure
+    // carries no label, which is the third note.
     let found_notes = notes(&def);
-    assert_eq!(found_notes.len(), 2);
-    assert!(found_notes.iter().all(|n| n.item == "unstamped_check"));
+    assert_eq!(found_notes.len(), 3, "got {found_notes:?}");
+    assert_eq!(
+        found_notes
+            .iter()
+            .filter(|n| n.item == "unstamped_check")
+            .count(),
+        2
+    );
 }
 
 #[test]

@@ -29,7 +29,10 @@ fn clean_space_grades_clean() {
     // which carries no stored answer by design. The columns
     // carry no descriptions either, and those are notes too.
     let found_notes = notes(&def);
-    assert_eq!(found_notes.len(), 3);
+    // Five notes. The sample question, the two undescribed
+    // columns, and label coverage on those same two columns,
+    // which carry no labels in the serialized form.
+    assert_eq!(found_notes.len(), 5, "got {found_notes:?}");
     assert!(
         found_notes
             .iter()

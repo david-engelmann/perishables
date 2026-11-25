@@ -29,9 +29,14 @@ fn clean_manifest_grades_clean() {
         "a clean manifest must grade clean, got {findings:?}"
     );
     let found_notes = notes(&def);
+    // Everything is described, and nothing carries a label
+    // except the metrics, so the notes are exactly the label
+    // coverage on the two measures and two dimensions.
+    assert_eq!(found_notes.len(), 4, "got {found_notes:?}");
     assert!(
-        found_notes.is_empty(),
-        "a fully described manifest earns no notes, got {found_notes:?}"
+        found_notes
+            .iter()
+            .all(|n| n.text.contains("carries no label"))
     );
 }
 
@@ -80,6 +85,17 @@ fn notes_report_coverage_without_tripping_the_gate() {
     // not exist.
     let def = load("dangling");
     let found = notes(&def);
-    assert_eq!(found.len(), 1);
-    assert!(found[0].text.contains("referenced by no metric"));
+    // Two notes. The orphan, and the revenue measure's label
+    // coverage, the one item in the fixture with no label.
+    assert_eq!(found.len(), 2, "got {found:?}");
+    assert!(
+        found
+            .iter()
+            .any(|n| n.text.contains("referenced by no metric"))
+    );
+    assert!(
+        found
+            .iter()
+            .any(|n| n.text.contains("measure revenue carries no label"))
+    );
 }

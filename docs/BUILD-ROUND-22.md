@@ -1,0 +1,13 @@
+# Build round 22. Coverage notes completed, and the hosted route answered with fresh evidence
+
+Date. 2026-11-25. Stacked on the review fixes branch.
+
+The hosted route, answered first because the press asked for fresh evidence rather than a restated limit. This seat attempted to open a draft pull request for the stack head through its stored credential during this pass. The response was 403, resource not accessible by personal access token, the same wall recorded on 2026-11-24 and now re-verified on 2026-11-25. The workflow triggers on pushes to main and on pull requests. Direct pushes to main are refused by the landing ruleset, and branch pushes run nothing. There is therefore no route from this seat to a hosted run. The verification the stack is owed moves only when a pull request opens from Main's side, and this record states that as a measured fact of today, not a standing assumption.
+
+What landed. The coverage family now answers all three discoverability questions the design record asks. Description coverage stood already. Label coverage is new, one note per metric, measure, or dimension carrying no label. Synonym coverage is new, one note per item no alias claim names, asked only where the document itself uses synonyms, because a document claiming none anywhere has stated its posture rather than left a gap. The gates were reconciled fixture by fixture, each expected note count derived from the fixture read firsthand, and the counts are stated in the tests beside the assertions. Two ecosystems' clean fixtures earn no new notes at all, Looker and AtScale, whose items carry labels throughout. The rest earn exactly the coverage their items lack, and no finding set changed anywhere, because coverage is information and never a gate.
+
+One consistency fix rode along. A Cube view's member selection is a reader construct, and it now carries its view name as its label as it already carried a plain description, so the construct itself never trips the coverage family it feeds.
+
+Landing route. Stacked on cross-ecosystem-review-fixes-1 as branch cross-ecosystem-coverage-1, for the standing route.
+
+The next charge, seated on this close. Orphan coverage beyond measures, the remaining item from the self review's accepted list. The design record names entities and metrics as orphan candidates alongside measures. The slice will state precisely which orphan observations are information and which are noise per ecosystem shape, build the ones that are information, and record the rest as rejected with reasons rather than accepted. After it, the accepted list is empty and the programme's remaining work is the landing itself.

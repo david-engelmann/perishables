@@ -157,7 +157,9 @@ fn ai_context_at_the_truncation_limit_is_a_note() {
     let def = read_cube_definition(&text).expect("parses");
     assert!(grade(&def).is_empty());
     let found_notes = notes(&def);
-    assert_eq!(found_notes.len(), 1);
+    // Two notes. The truncation observation, and label
+    // coverage on the measure, which carries no title here.
+    assert_eq!(found_notes.len(), 2, "got {found_notes:?}");
     assert!(found_notes[0].text.contains("truncates silently"));
     assert_eq!(found_notes[0].item, "measure orders.revenue");
 }

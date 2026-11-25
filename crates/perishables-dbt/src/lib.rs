@@ -717,6 +717,72 @@ pub fn notes(def: &Definition) -> Vec<Note> {
             });
         }
     }
+    // Label coverage, the second discoverability question
+    // the design record asks. An item with no label answers
+    // to its raw name wherever it is displayed.
+    for m in &def.metrics {
+        if m.label.is_none() {
+            out.push(Note {
+                item: m.name.clone(),
+                text: format!("metric {} carries no label", m.name),
+            });
+        }
+    }
+    for m in &def.measures {
+        if m.label.is_none() {
+            out.push(Note {
+                item: m.name.clone(),
+                text: format!("measure {} carries no label", m.name),
+            });
+        }
+    }
+    for d in &def.dimensions {
+        if d.label.is_none() {
+            out.push(Note {
+                item: d.name.clone(),
+                text: format!("dimension {} carries no label", d.name),
+            });
+        }
+    }
+    // Synonym coverage, the third question. It is asked only
+    // where the document itself uses synonyms, because a
+    // document that claims none anywhere has stated its
+    // posture rather than left a gap. An item is claimed
+    // when an alias owner names it, bare, after a space, or
+    // after a dot, the owner forms the readers produce.
+    if !def.aliases.is_empty() {
+        let claimed = |name: &str| {
+            def.aliases.iter().any(|a| {
+                a.owner == name
+                    || a.owner.ends_with(&format!(" {name}"))
+                    || a.owner.ends_with(&format!(".{name}"))
+            })
+        };
+        for m in &def.metrics {
+            if !claimed(&m.name) {
+                out.push(Note {
+                    item: m.name.clone(),
+                    text: format!("metric {} carries no synonyms", m.name),
+                });
+            }
+        }
+        for m in &def.measures {
+            if !claimed(&m.name) {
+                out.push(Note {
+                    item: m.name.clone(),
+                    text: format!("measure {} carries no synonyms", m.name),
+                });
+            }
+        }
+        for d in &def.dimensions {
+            if !claimed(&d.name) {
+                out.push(Note {
+                    item: d.name.clone(),
+                    text: format!("dimension {} carries no synonyms", d.name),
+                });
+            }
+        }
+    }
     out.sort_by(|a, b| a.item.cmp(&b.item).then(a.text.cmp(&b.text)));
     out
 }

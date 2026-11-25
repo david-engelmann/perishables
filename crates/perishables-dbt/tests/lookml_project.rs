@@ -45,10 +45,17 @@ fn whole_project_grades_with_only_the_planted_defects() {
     assert_eq!(findings[0].item, "ghost_to_missing_view");
     // The dashboards include matched nothing in the set and
     // is a coverage note. The views include matched, and is
-    // silent.
+    // silent. The rest of the notes are label coverage, no
+    // field or measure in the project carries a label, and
+    // inherited fields carry the note once per view that
+    // carries them. Thirteen in all.
     let found_notes = notes(&def);
-    assert_eq!(found_notes.len(), 1, "got {found_notes:?}");
-    assert!(found_notes[0].text.contains("/dashboards/*.lookml"));
+    assert_eq!(found_notes.len(), 13, "got {found_notes:?}");
+    assert!(
+        found_notes
+            .iter()
+            .any(|n| n.text.contains("/dashboards/*.lookml"))
+    );
 }
 
 #[test]

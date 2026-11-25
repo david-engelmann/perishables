@@ -30,7 +30,10 @@ fn clean_project_grades_clean() {
         findings.is_empty(),
         "a clean project must grade clean, got {findings:?}"
     );
-    assert!(notes(&def).is_empty());
+    // Three coverage notes. The amount dimension carries no
+    // label, and it and the customers name field carry no
+    // synonyms in a file that does use them elsewhere.
+    assert_eq!(notes(&def).len(), 3, "got {:?}", notes(&def));
 }
 
 #[test]

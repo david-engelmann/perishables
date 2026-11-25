@@ -31,10 +31,11 @@ fn clean_ossie_grades_clean() {
         "a clean Ossie document must grade clean, got {findings:?}"
     );
     let found_notes = notes(&def);
-    assert!(
-        found_notes.is_empty(),
-        "every item is described, got {found_notes:?}"
-    );
+    // Every item is described. Nothing carries a label, and
+    // the metric and the region field carry no synonyms, so
+    // the notes are the coverage family answering its other
+    // two questions, five in all.
+    assert_eq!(found_notes.len(), 5, "got {found_notes:?}");
 }
 
 #[test]
@@ -46,7 +47,7 @@ fn clean_ossie_yaml_grades_like_the_json_form() {
     let from_json = load("ossie-clean");
     assert_eq!(from_yaml, from_json);
     assert!(grade(&from_yaml).is_empty());
-    assert!(notes(&from_yaml).is_empty());
+    assert_eq!(notes(&from_yaml).len(), 5);
 }
 
 #[test]
