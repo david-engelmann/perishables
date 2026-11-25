@@ -10,6 +10,7 @@
 //!   perishables grade-databricks <space.json>
 //!   perishables grade-cube <meta.json>
 //!   perishables grade-looker <model.json>
+//!   perishables grade-atscale <model.json>
 //!
 //! The audit command prints a tier line for every concept showing
 //! the raw and recomputed tiers, one line per computation verdict,
@@ -46,6 +47,7 @@ fn main() -> ExitCode {
         Some("grade-databricks") => grade_databricks(&args[1..]),
         Some("grade-cube") => grade_cube(&args[1..]),
         Some("grade-looker") => grade_looker(&args[1..]),
+        Some("grade-atscale") => grade_atscale(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> --as-of YYYY-MM-DD");
             eprintln!("       perishables corpus [fixtures-dir]");
@@ -56,6 +58,7 @@ fn main() -> ExitCode {
             eprintln!("       perishables grade-databricks <space.json>");
             eprintln!("       perishables grade-cube <meta.json>");
             eprintln!("       perishables grade-looker <model.json>");
+            eprintln!("       perishables grade-atscale <model.json>");
             ExitCode::from(2)
         }
     }
@@ -299,6 +302,14 @@ fn grade_looker(args: &[String]) -> ExitCode {
         args,
         "GRADE-LOOKER",
         perishables_dbt::read_looker_definition,
+    )
+}
+
+fn grade_atscale(args: &[String]) -> ExitCode {
+    grade_file(
+        args,
+        "GRADE-ATSCALE",
+        perishables_dbt::read_atscale_definition,
     )
 }
 

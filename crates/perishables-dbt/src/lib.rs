@@ -45,10 +45,15 @@
 //! Slice 6 adds the Looker reader, on the API's assembled
 //! view and explore documents. See looker.rs.
 //!
+//! Slice 7 adds the AtScale reader, and the model gains an
+//! attribute set that references may resolve against. See
+//! atscale.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
 
+mod atscale;
 mod cube;
 mod databricks;
 mod json;
@@ -59,6 +64,7 @@ mod yaml;
 
 use std::collections::BTreeMap;
 
+pub use atscale::read_atscale_definition;
 pub use cube::read_cube_definition;
 pub use databricks::read_databricks_definition;
 pub use json::Json;
@@ -192,6 +198,11 @@ pub struct Definition {
     /// character count. Only the Cube reader fills this in
     /// this slice.
     pub ai_contexts: Vec<AiContext>,
+    /// Attribute names a reference may resolve against, in
+    /// the qualified form the referencing reader uses.
+    /// AtScale hierarchy levels reference dimension
+    /// attributes, which are neither measures nor metrics.
+    pub attributes: Vec<String>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -372,12 +383,13 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
             }
         }
         for r in &metric.metric_refs {
-            if !metric_names.contains(&r.as_str()) {
+            if !metric_names.contains(&r.as_str()) && !def.attributes.iter().any(|a| a == r) {
+                let kind = if r.contains('.') { "attribute" } else { "metric" };
                 findings.push(Finding {
                     code: Code::DanglingMetricReference,
                     item: metric.name.clone(),
                     detail: format!(
-                        "metric {} is derived from metric {r}, which does not exist",
+                        "metric {} references {kind} {r}, which does not exist",
                         metric.name
                     ),
                 });
