@@ -1,0 +1,14 @@
+- id: perishables-drift
+  name: perishables source drift check
+  description: Verify recorded SHA-256 hashes of in-bundle OKF sources
+  entry: perishables drift
+  args: ["."]
+  language: rust
+  pass_filenames: false
+
+- id: perishables-grade
+  name: perishables semantic-layer grader
+  description: Grade dbt, Ossie, Snowflake, Databricks, Cube, Looker/LookML, or AtScale definitions (override files in .pre-commit-config.yaml for custom paths)
+  entry: perishables grade
+  language: rust
+  files: (\.lookml$|semantic.*\.(json|ya?ml)$|manifest\.json$)

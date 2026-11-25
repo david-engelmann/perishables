@@ -1,0 +1,21 @@
+name: sales
+version: 0.2.0
+ai_context:
+  instructions: Finance reporting model.
+  synonyms: [finance model]
+datasets:
+  - name: orders
+    description: One row per order.
+    ai_context:
+      synonyms: [orders data]
+    fields:
+      - name: amount
+        description: Gross amount of the order.
+        expression: amount
+        ai_context:
+          synonyms: [order total]
+      - name: region
+        description: Sales region of the order.
+metrics:
+  - name: total_revenue
+    description: Sum of order amounts.

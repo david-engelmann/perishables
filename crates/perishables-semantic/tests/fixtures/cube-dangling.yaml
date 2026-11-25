@@ -1,0 +1,12 @@
+cubes:
+  - name: orders
+    title: Orders
+    measures:
+      - name: revenue
+        title: Revenue
+        description: Gross revenue.
+    dimensions: []
+    joins:
+      - name: shipments
+        relationship: one_to_many
+        sql: "{CUBE}.id = {shipments}.order_id"

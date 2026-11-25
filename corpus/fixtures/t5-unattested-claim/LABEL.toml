@@ -1,0 +1,6 @@
+fixture = "t5-unattested-claim"
+taxonomy = "T5"
+expect = "fail"
+expected_finding = "UNATTESTED_CLAIM"
+concept = "computations/warehouse-count"
+claimed_result = "1000"

@@ -242,6 +242,7 @@ fn drift_separates_cleanly() {
         "t3-dangling-external",
         "t4-stale-stable",
         "t5-attested-mismatch",
+        "t5-unattested-claim",
         "t6-provenance-footnote",
         "t6-provenance-missing-file",
         "t7-superseded-without-deprecated",
@@ -263,15 +264,16 @@ fn drift_separates_cleanly() {
 
 #[test]
 fn later_round_fixtures_are_invisible_to_these_checks() {
-    // One fixture remains. The attested mismatch defect is
-    // invisible to the library checks by design, because re
-    // execution lives in the adapter crate.
-    let bundle = load("t5-attested-mismatch");
-    let findings = all_findings(&bundle);
-    assert!(
-        findings.is_empty(),
-        "t5-attested-mismatch belongs to the adapter round and must be silent here, got {findings:?}"
-    );
+    // Attested computation execution defects are evaluated by the
+    // adapter crate rather than the pure library checks.
+    for name in ["t5-attested-mismatch", "t5-unattested-claim"] {
+        let bundle = load(name);
+        let findings = all_findings(&bundle);
+        assert!(
+            findings.is_empty(),
+            "{name} belongs to the adapter execution gate and must be silent here, got {findings:?}"
+        );
+    }
 }
 
 #[test]
@@ -324,10 +326,15 @@ fn bundle_unchanged_by_audit() {
         let mut stack = vec![dir.to_path_buf()];
         while let Some(current) = stack.pop() {
             for entry in std::fs::read_dir(&current).expect("fixture dir") {
-                let path = entry.expect("entry").path();
-                if path.is_dir() {
+                let entry = entry.expect("entry");
+                let ft = entry.file_type().expect("file type");
+                if ft.is_symlink() {
+                    continue;
+                }
+                let path = entry.path();
+                if ft.is_dir() {
                     stack.push(path);
-                } else {
+                } else if ft.is_file() {
                     paths.push(path);
                 }
             }

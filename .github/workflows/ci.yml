@@ -5,20 +5,102 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
-  gates:
+  hygiene:
+    name: Hygiene and Zero-Dep Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Toolchain
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify zero external dependencies in Cargo.lock
+        run: |
+          python3 - <<'PY'
+          import pathlib, re, sys
+
+          lock = pathlib.Path("Cargo.lock").read_text(encoding="utf-8")
+          names = re.findall(r'^name = "([^"]+)"', lock, flags=re.MULTILINE)
+          allowed = {"perishables", "perishables-core", "perishables-semantic"}
+          extra = sorted(set(names) - allowed)
+          if extra:
+              sys.stderr.write(f"External dependencies forbidden in workspace: {extra}\n")
+              sys.exit(1)
+
+          core_toml = pathlib.Path("crates/perishables-core/Cargo.toml").read_text(encoding="utf-8")
+          dep_section = core_toml.split("[dependencies]", 1)[1].split("[", 1)[0].strip()
+          if dep_section:
+              sys.stderr.write(f"perishables-core must stay zero-dependency, found:\n{dep_section}\n")
+              sys.exit(1)
+          print(f"Verified zero external crates across {sorted(names)}")
+          PY
+      - name: Verify Markdown typography bar (no em or en dashes)
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+
+          violations = []
+          for md in sorted(pathlib.Path(".").rglob("*.md")):
+              if ".git" in md.parts:
+                  continue
+              text = md.read_text(encoding="utf-8")
+              for line_no, line in enumerate(text.splitlines(), 1):
+                  if "\u2014" in line or "\u2013" in line:
+                      violations.append(f"{md}:{line_no}: contains em or en dash")
+          if violations:
+              sys.stderr.write("\n".join(violations) + "\n")
+              sys.exit(1)
+          print("Zero em or en dashes across all Markdown files.")
+          PY
+
+  matrix-gates:
+    name: Gate (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
           rustup default 1.100.0
-      - name: Format
-        run: cargo fmt --all --check
-      - name: Clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
-      - name: Test
-        run: cargo test --workspace
-      - name: Build
-        run: cargo build --workspace
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-1.100.0-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-1.100.0-
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+      - name: Run Clippy
+        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Run test suite
+        run: cargo test --workspace --all-features --locked
+      - name: Run corpus gate
+        run: cargo run --locked -- corpus
+      - name: Build documentation
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+        run: cargo doc --workspace --no-deps --locked
+      - name: Run embedding example
+        run: cargo run -p perishables-core --example audit_bundle --locked
+
+  gates:
+    name: gates
+    needs: [hygiene, matrix-gates]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require hygiene and all OS gates green
+        run: |
+          test "${{ needs.hygiene.result }}" = "success"
+          test "${{ needs.matrix-gates.result }}" = "success"

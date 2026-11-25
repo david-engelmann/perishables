@@ -1,0 +1,1 @@
+{"explores":[{"joins":[{"name":"shipments","relationship":"one_to_many"}],"name":"orders","view_name":"orders"}],"views":[{"dimensions":[{"description":"Sales region.","label":"Region","name":"region","synonyms":["revenue"]}],"measures":[{"description":"Gross revenue.","label":"Revenue","name":"total_revenue"}],"name":"orders"}]}

@@ -1,0 +1,165 @@
+name: "perishables"
+description: "Deterministic trust-claim auditor for Open Knowledge Format bundles and cross-ecosystem semantic layers"
+author: "David Engelmann"
+branding:
+  icon: "check-circle"
+  color: "green"
+
+inputs:
+  command:
+    description: "Command to execute (audit, corpus, drift, grade, grade-dbt, grade-ossie, grade-snowflake, grade-databricks, grade-cube, grade-looker, grade-atscale)"
+    required: false
+    default: "audit"
+  path:
+    description: "Bundle directory or whitespace/newline-separated semantic definition file path(s)"
+    required: false
+    default: "."
+  as-of:
+    description: "Pinned RFC 3339 timestamp or YYYY-MM-DD date (required when command is audit)"
+    required: false
+    default: ""
+  ecosystem:
+    description: "Ecosystem name when command is grade (dbt, ossie, snowflake, databricks, cube, looker, atscale)"
+    required: false
+    default: ""
+  changed-at:
+    description: "Definition last-changed date or epoch seconds (for Snowflake currency checks)"
+    required: false
+    default: ""
+  format:
+    description: "Output format (text, json, sarif, github)"
+    required: false
+    default: "github"
+  output:
+    description: "Optional output report file path"
+    required: false
+    default: ""
+  no-exec:
+    description: "Set to true to disable Python execution of Attested Computations during audit"
+    required: false
+    default: "false"
+  version:
+    description: "Release tag of perishables to install (for example v0.1.0), or build-from-source when empty"
+    required: false
+    default: "v0.1.0"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install perishables
+      shell: bash
+      env:
+        PERISHABLES_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if command -v perishables >/dev/null 2>&1; then
+          exit 0
+        fi
+        OS="$(uname -s)"
+        ARCH="$(uname -m)"
+        EXT="tar.gz"
+        BIN="perishables"
+        case "${OS}" in
+          Linux)
+            case "${ARCH}" in
+              x86_64) TARGET="x86_64-unknown-linux-gnu" ;;
+              aarch64|arm64) TARGET="aarch64-unknown-linux-gnu" ;;
+              *) TARGET="" ;;
+            esac
+            ;;
+          Darwin)
+            case "${ARCH}" in
+              x86_64) TARGET="x86_64-apple-darwin" ;;
+              arm64|aarch64) TARGET="aarch64-apple-darwin" ;;
+              *) TARGET="" ;;
+            esac
+            ;;
+          MINGW*|MSYS*|CYGWIN*|Windows_NT)
+            case "${ARCH}" in
+              x86_64|amd64|AMD64) TARGET="x86_64-pc-windows-msvc" ;;
+              *) TARGET="" ;;
+            esac
+            EXT="zip"
+            BIN="perishables.exe"
+            ;;
+          *)
+            TARGET=""
+            ;;
+        esac
+        INSTALL_DIR="${RUNNER_TEMP}/perishables-bin"
+        mkdir -p "${INSTALL_DIR}"
+        if [ -n "${TARGET}" ] && [ -n "${PERISHABLES_VERSION}" ]; then
+          TAG="v${PERISHABLES_VERSION#v}"
+          STAGE="perishables-${TAG}-${TARGET}"
+          ARCHIVE="${STAGE}.${EXT}"
+          URL="https://github.com/david-engelmann/perishables/releases/download/${TAG}/${ARCHIVE}"
+          if curl -fsSL "${URL}" -o "${INSTALL_DIR}/${ARCHIVE}"; then
+            if [ "${EXT}" = "zip" ]; then
+              if command -v 7z >/dev/null 2>&1; then
+                7z x -y "${INSTALL_DIR}/${ARCHIVE}" -o"${INSTALL_DIR}" >/dev/null
+              else
+                unzip -q "${INSTALL_DIR}/${ARCHIVE}" -d "${INSTALL_DIR}"
+              fi
+              mv "${INSTALL_DIR}/${STAGE}/${BIN}" "${INSTALL_DIR}/${BIN}"
+            else
+              tar -xzf "${INSTALL_DIR}/${ARCHIVE}" -C "${INSTALL_DIR}" --strip-components=1
+              chmod +x "${INSTALL_DIR}/${BIN}"
+            fi
+            if command -v cygpath >/dev/null 2>&1; then
+              cygpath -w "${INSTALL_DIR}" >> "${GITHUB_PATH}"
+            else
+              echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
+            fi
+            exit 0
+          fi
+        fi
+        if [ -n "${PERISHABLES_VERSION}" ]; then
+          TAG="v${PERISHABLES_VERSION#v}"
+          cargo install --git https://github.com/david-engelmann/perishables --tag "${TAG}" --locked perishables
+        else
+          cargo install --git https://github.com/david-engelmann/perishables --locked perishables
+        fi
+
+    - name: Run perishables
+      shell: bash
+      env:
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_AS_OF: ${{ inputs.as-of }}
+        INPUT_ECOSYSTEM: ${{ inputs.ecosystem }}
+        INPUT_CHANGED_AT: ${{ inputs.changed-at }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_NO_EXEC: ${{ inputs.no-exec }}
+      run: |
+        set -euo pipefail
+        ARGS=("${INPUT_COMMAND}")
+        if [ "${INPUT_COMMAND}" != "corpus" ] || [ "${INPUT_PATH}" != "." ]; then
+          # Split across spaces, tabs, and newlines safely on Bash 3.2+ under set -u.
+          set -f
+          for item in ${INPUT_PATH}; do
+            if [ -n "${item}" ]; then
+              ARGS+=("${item}")
+            fi
+          done
+          set +f
+        fi
+        if [ -n "${INPUT_AS_OF}" ]; then
+          ARGS+=("--as-of" "${INPUT_AS_OF}")
+        fi
+        if [ -n "${INPUT_ECOSYSTEM}" ]; then
+          ARGS+=("--ecosystem" "${INPUT_ECOSYSTEM}")
+        fi
+        if [ -n "${INPUT_CHANGED_AT}" ]; then
+          ARGS+=("--changed-at" "${INPUT_CHANGED_AT}")
+        fi
+        if [ -n "${INPUT_FORMAT}" ]; then
+          ARGS+=("--format" "${INPUT_FORMAT}")
+        fi
+        if [ -n "${INPUT_OUTPUT}" ]; then
+          ARGS+=("--output" "${INPUT_OUTPUT}")
+        fi
+        if [ "${INPUT_NO_EXEC}" = "true" ]; then
+          ARGS+=("--no-exec")
+        fi
+        perishables "${ARGS[@]}"

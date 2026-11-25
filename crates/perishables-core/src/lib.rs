@@ -1,4 +1,4 @@
-//! Trust layer checks for Open Knowledge Format bundles.
+//! Trust-layer checks for Open Knowledge Format bundles.
 //!
 //! This crate recomputes trust tiers from current verifications
 //! only, checks verification currency, and walks `superseded_by`
@@ -6,11 +6,49 @@
 //! [`AuditClock`], so the same bundle and the same clock always give
 //! the same findings.
 //!
-//! The public surface is the locked interface the upkeep engine
-//! consumes. It has exactly four calls: [`recompute_tier`],
-//! [`check_currency`], [`walk_supersession`], and
-//! [`check_supersession`]. Finding codes live in the closed
-//! [`FindingCode`] enum and never change meaning once published.
+//! The public surface includes the four locked calls consumed by
+//! downstream upkeep engines: [`recompute_tier`], [`check_currency`],
+//! [`walk_supersession`], and [`check_supersession`]. Finding codes
+//! live in the closed [`FindingCode`] enum and never change meaning
+//! once published.
+//!
+//! # Example
+//!
+//! ```
+//! use perishables_core::{
+//!     AuditClock, Bundle, Concept, Tier, VerifiedEvent, check_currency, recompute_tier,
+//! };
+//!
+//! let clock = AuditClock::parse("2026-11-20").expect("valid date");
+//! let concept = Concept {
+//!     id: "metrics/revenue".to_string(),
+//!     concept_type: "Metric".to_string(),
+//!     status: "stable".to_string(),
+//!     superseded_by: None,
+//!     generated_at: AuditClock::parse("2026-06-20T14:00:00Z").map(|c| c.epoch_seconds),
+//!     generated_text: Some("2026-06-20T14:00:00Z".to_string()),
+//!     stale_after_text: Some("2026-12-31T00:00:00Z".to_string()),
+//!     stale_after: AuditClock::parse("2026-12-31T00:00:00Z").map(|c| c.epoch_seconds),
+//!     verified: vec![VerifiedEvent {
+//!         by: Some("human:reviewer".to_string()),
+//!         at_text: Some("2026-06-25T09:00:00Z".to_string()),
+//!         at: AuditClock::parse("2026-06-25T09:00:00Z").map(|c| c.epoch_seconds),
+//!     }],
+//!     sources: Vec::new(),
+//!     citations: Vec::new(),
+//!     runtime: None,
+//!     parameters: Vec::new(),
+//!     code_blocks: Vec::new(),
+//!     file_code: None,
+//!     claimed_result: None,
+//! };
+//!
+//! let report = recompute_tier(&concept, &clock);
+//! assert_eq!(report.recomputed_tier, Tier::HumanReviewed);
+//!
+//! let bundle = Bundle::from_concepts(vec![concept]);
+//! assert!(check_currency(&bundle, &clock).is_empty());
+//! ```
 
 mod bundle;
 mod checks;
@@ -29,10 +67,29 @@ pub struct AuditClock {
 }
 
 impl AuditClock {
-    /// Build a clock from an OKF timestamp or bare date. Returns
-    /// `None` when the text is not a timestamp.
+    /// Build a clock from an OKF RFC 3339 timestamp or bare `YYYY-MM-DD` date.
+    /// Returns `None` when the text is not a valid calendar date or timestamp.
+    ///
+    /// ```
+    /// use perishables_core::AuditClock;
+    ///
+    /// let clock = AuditClock::parse("2026-11-20").unwrap();
+    /// assert_eq!(clock.to_rfc3339(), "2026-11-20T00:00:00Z");
+    /// assert!(AuditClock::parse("2026-02-29").is_none());
+    /// ```
     pub fn parse(text: &str) -> Option<AuditClock> {
         time::parse_timestamp(text).map(|epoch_seconds| AuditClock { epoch_seconds })
+    }
+
+    /// Format this instant as a canonical UTC RFC 3339 timestamp (`YYYY-MM-DDTHH:MM:SSZ`).
+    pub fn to_rfc3339(&self) -> String {
+        time::format_rfc3339(self.epoch_seconds)
+    }
+}
+
+impl std::fmt::Display for AuditClock {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.to_rfc3339())
     }
 }
 
@@ -48,7 +105,7 @@ pub enum Tier {
 }
 
 impl Tier {
-    /// The tier name as the spec writes it.
+    /// The tier name as the OKF specification writes it.
     pub fn name(&self) -> &'static str {
         match self {
             Tier::Unverified => "unverified",
@@ -86,19 +143,19 @@ pub enum FindingCode {
     /// The body cites a footnote label that no `sources` entry
     /// carries as its id, so the attribution resolves to nothing.
     UnresolvedCitation,
-    /// A `sources` entry points at an in bundle resource that is
+    /// A `sources` entry points at an in-bundle resource that is
     /// not in the bundle.
     MissingSource,
-    /// An Attested Computation ran cleanly under re execution and
+    /// An Attested Computation ran cleanly under re-execution and
     /// its result differs from the attested result the bundle
     /// claims.
     AttestedResultMismatch,
     /// A source carries a recorded content hash and the bytes in
     /// the bundle no longer hash to it.
     SourceDrift,
-    /// A concept presents a value as attested, but the computation
-    /// behind it is missing or outside the executable profile, so
-    /// the audit cannot support the claim.
+    /// A concept presents a value as attested, while the computation
+    /// behind it is missing, non-deterministic, failed, or outside
+    /// the executable profile.
     UnattestedClaim,
 }
 
@@ -125,7 +182,7 @@ impl FindingCode {
 /// One finding, tied to one concept and one rule.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Finding {
-    /// The concept id, which is the bundle relative path without
+    /// The concept id, which is the bundle-relative path without
     /// the `.md` suffix.
     pub concept_id: String,
     /// The rule that produced this finding.
@@ -137,9 +194,9 @@ pub struct Finding {
 /// How one verification event classifies against its concept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EventClass {
-    /// Well formed and at or after the last generation. It counts.
+    /// Well-formed and at or after the last generation. It counts.
     Current,
-    /// Well formed but earlier than the last generation. It does
+    /// Well-formed and earlier than the last generation. It does
     /// not count.
     Lapsed,
     /// Missing its actor or a parseable timestamp. It counts for
@@ -198,7 +255,7 @@ pub struct ChainReport {
     /// How the chain ends.
     pub terminal: ChainTerminal,
     /// Targets reached only through the SPEC 12.1 fallback, marked
-    /// as the spec requires. Empty for current version bundles.
+    /// as the spec requires. Empty for current-version bundles.
     pub fallback_targets: Vec<String>,
     /// The finding when the chain is defective.
     pub finding: Option<Finding>,
@@ -228,41 +285,22 @@ pub fn check_supersession(bundle: &Bundle) -> Vec<Finding> {
     checks::check_supersession(bundle)
 }
 
-/// Check freshness against the pinned clock. This is an auditor
-/// side check, not one of the four locked calls the upkeep engine
-/// consumes. A concept is stale when the pinned instant is at or
-/// past its `stale_after`. The finding fires only when a stale
-/// concept still presents as stable, and an unparseable
-/// `stale_after` is reported as malformed because the spec says it
-/// is never treated as fresh.
+/// Check freshness against the pinned clock.
 pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     checks::check_freshness(bundle, clock)
 }
 
-/// Check provenance completeness. Also an auditor side check, not
-/// one of the locked four. A footnote label the body cites with no
-/// matching `sources` id is an unresolved citation, and a
-/// `sources` entry whose resource is an in bundle path that does
-/// not resolve is a missing source. External resources are never
-/// fetched, so they are never findings. A concept with no sources
-/// at all records no provenance and is not a finding.
+/// Check provenance completeness.
 pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
     checks::check_provenance(bundle)
 }
 
-/// Check source drift. A source that records a content hash is
-/// rehashed from the bytes in the bundle, and a mismatch is
-/// drift. This check began at extension level and joined the
-/// default gate on 2026-11-23, when David ruled the promotion
-/// after the corpus separation evidence was in.
+/// Check source drift against recorded SHA-256 content hashes.
 pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
     checks::check_drift(bundle)
 }
 
-/// One piece of information the design asks to be reported
-/// without being a finding. Stale deprecated concepts, concepts
-/// with no recorded provenance, and source ordering facts travel
-/// in this shape.
+/// One piece of information reported without tripping the audit gate.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InfoNote {
     /// The concept the note concerns.
@@ -271,16 +309,15 @@ pub struct InfoNote {
     pub text: String,
 }
 
-/// The information notes for a bundle, implementing the three
-/// reported as information statements of the design record.
+/// Information notes for a bundle, covering stale deprecated concepts,
+/// concepts with no recorded provenance, SPEC 12.1 fallback targets,
+/// and explicit source modification ordering facts.
 pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
     checks::info_notes(bundle, clock)
 }
 
-/// Sort findings into the deterministic report order, by concept
-/// id, then rule id, then detail. Every surface that prints
-/// findings uses this one ordering, so reports are byte identical
-/// across runs and commands.
+/// Sort findings into deterministic report order by concept id, then
+/// rule id, then detail.
 pub fn sort_findings(findings: &mut [Finding]) {
     checks::sort_findings(findings)
 }

@@ -1,19 +1,22 @@
-//! The four locked checks.
+//! The four locked checks and auditor-side checks.
 //!
 //! Tier recompute and the currency check implement verification
 //! currency from SPEC 5.3. A verification counts only when it is
 //! current, meaning its timestamp is at or after `generated.at`, or
 //! the concept carries no `generated.at`. Tiers are derived from
-//! current events only, and only the human scheme reaches the
-//! human-reviewed tier. Findings are per event, one for each lapsed
+//! current events only, and only the `human:` scheme reaches the
+//! `human-reviewed` tier. Findings are per event, one for each lapsed
 //! or malformed event, and sorted by concept id then rule id.
 //!
 //! The chain walk and the supersession check implement SPEC 5.4 and
 //! the path rules of SPEC 6. `superseded_by` carries meaning only on
 //! a deprecated concept, a chain must stay inside the bundle, it
 //! must terminate, and it must not cycle. Bundles that declare
-//! version 0.2 or earlier, or no version, also get the SPEC 12.1
-//! fallback, and any target found only through it is marked.
+//! version `0.2` or earlier, or no version, also get the SPEC 12.1
+//! fallback, and any target found only through it is recorded both in
+//! `ChainReport::fallback_targets` and in `info_notes`.
+
+use std::collections::BTreeSet;
 
 use crate::bundle::{Bundle, Concept, VerifiedEvent};
 use crate::{
@@ -85,8 +88,7 @@ pub(crate) fn sort_findings(findings: &mut [Finding]) {
 ///
 /// The clock belongs to the locked signature. Currency is defined
 /// against `generated.at`, not against the audit instant, so this
-/// call does not consult it. The stale rule, which does read the
-/// clock, arrives in its own round.
+/// call does not consult it.
 pub fn recompute_tier(concept: &Concept, _clock: &AuditClock) -> TierReport {
     let events: Vec<EventReport> = concept
         .verified
@@ -138,12 +140,7 @@ pub fn check_currency(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
 }
 
 /// Resolve a `superseded_by` value to a bundle concept id, per
-/// SPEC 6. A leading slash resolves from the bundle root, anything
-/// else from the directory of the concept that carries the field.
-/// External URIs and paths that escape the bundle do not resolve.
-/// The segment walking lives in one place, the bundle module file
-/// path resolver, and this function adds only the root relative
-/// reading and the concept id shape.
+/// SPEC 6.
 fn resolve_path(from_concept: &str, raw: &str, root_relative: bool) -> Option<String> {
     let raw = raw.trim();
     let rooted;
@@ -155,6 +152,23 @@ fn resolve_path(from_concept: &str, raw: &str, root_relative: bool) -> Option<St
     };
     let path = crate::bundle::resolve_file_path(from_concept, effective)?;
     Some(path.strip_suffix(".md").unwrap_or(&path).to_string())
+}
+
+/// Resolve one `superseded_by` hop to `(target_id, used_v02_fallback)`.
+fn resolve_hop(bundle: &Bundle, from_concept: &str, raw: &str) -> Option<(String, bool)> {
+    if let Some(id) =
+        resolve_path(from_concept, raw, false).filter(|id| bundle.concept(id).is_some())
+    {
+        return Some((id, false));
+    }
+    if bundle.uses_v02_fallback()
+        && !raw.trim().starts_with('/')
+        && let Some(id) =
+            resolve_path(from_concept, raw, true).filter(|id| bundle.concept(id).is_some())
+    {
+        return Some((id, true));
+    }
+    None
 }
 
 fn dangling(start: &str, detail: String) -> Finding {
@@ -190,23 +204,7 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
             finding = Some(dangling(start, "superseded_by is empty".to_string()));
             break;
         }
-        // Primary resolution per SPEC 6, then the SPEC 12.1
-        // fallback for older or undeclared bundles: a path without
-        // a leading slash that fails from its file may resolve
-        // from the bundle root, and the target is marked.
-        let mut next =
-            resolve_path(&current, &raw, false).filter(|id| bundle.concept(id).is_some());
-        let mut via_fallback = false;
-        if next.is_none()
-            && bundle.uses_v02_fallback()
-            && !raw.trim().starts_with('/')
-            && let Some(id) =
-                resolve_path(&current, &raw, true).filter(|id| bundle.concept(id).is_some())
-        {
-            next = Some(id);
-            via_fallback = true;
-        }
-        let Some(next) = next else {
+        let Some((next, via_fallback)) = resolve_hop(bundle, &current, &raw) else {
             terminal = ChainTerminal::Dangling;
             finding = Some(dangling(
                 start,
@@ -247,10 +245,7 @@ pub fn walk_supersession(bundle: &Bundle, start: &str) -> ChainReport {
     }
 }
 
-/// The freshness check, implementing SPEC 5.5 as the design
-/// record states it. Stale means check again and does not mean
-/// false, and the finding wording says so. A stale deprecated
-/// concept no longer claims currency, so it is not a finding.
+/// The freshness check, implementing SPEC 5.5.
 pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     let mut findings = Vec::new();
     for concept in &bundle.concepts {
@@ -282,20 +277,15 @@ pub fn check_freshness(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
     findings
 }
 
-/// Resolve a source resource to a bundle relative file path.
-/// External resources do not resolve, by design, because the audit
-/// never fetches them.
+/// Resolve a source resource to a bundle-relative file path.
 fn resolve_resource(from_concept: &str, raw: &str) -> Option<String> {
     crate::bundle::resolve_file_path(from_concept, raw)
 }
 
-/// The information notes. Three design statements are reported as
-/// information rather than as findings. A stale deprecated concept
-/// is reported and not gated. A concept with no sources entry is
-/// reported as having no recorded provenance. A source with no
-/// recorded hash gets only the ordering fact between its file
-/// modification time and the concept generated time, never a
-/// verdict the data cannot support.
+/// The information notes. Surfaces stale deprecated concepts,
+/// concepts with no recorded provenance, SPEC 12.1 root-relative
+/// supersession fallbacks, and source modification ordering facts
+/// when explicit source timestamps were supplied.
 pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
     let mut notes = Vec::new();
     for concept in &bundle.concepts {
@@ -315,6 +305,18 @@ pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
             notes.push(InfoNote {
                 concept_id: concept.id.clone(),
                 text: "no recorded provenance, the concept carries no sources entry".to_string(),
+            });
+        }
+        if let Some(raw) = &concept.superseded_by
+            && !raw.trim().is_empty()
+            && let Some((target, true)) = resolve_hop(bundle, &concept.id, raw)
+        {
+            notes.push(InfoNote {
+                concept_id: concept.id.clone(),
+                text: format!(
+                    "superseded_by {} resolved to {target} via SPEC 12.1 root-relative fallback",
+                    raw.trim()
+                ),
             });
         }
         for source in &concept.sources {
@@ -350,11 +352,8 @@ pub fn info_notes(bundle: &Bundle, clock: &AuditClock) -> Vec<InfoNote> {
     notes
 }
 
-/// The drift check. A source that records a
-/// content hash is rehashed from the bytes loaded with the bundle,
-/// and a mismatch is drift. A missing file is the provenance
-/// check's finding, not this one's, and an external resource is
-/// never fetched, so neither is reported here.
+/// The drift check. Rehashes every in-bundle source that records a
+/// `sha256` digest and emits `FindingCode::SourceDrift` on mismatch.
 pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
     let mut findings = Vec::new();
     for concept in &bundle.concepts {
@@ -386,9 +385,8 @@ pub fn check_drift(bundle: &Bundle) -> Vec<Finding> {
     findings
 }
 
-/// The provenance check, implementing the design record section
-/// on stated facts only. Citations resolve against source ids, and
-/// in bundle resources resolve against the file inventory.
+/// The provenance check. Citations resolve against `sources` ids, and
+/// in-bundle resources resolve against the bundle file inventory.
 pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
     let mut findings = Vec::new();
     for concept in &bundle.concepts {
@@ -410,9 +408,13 @@ pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
                 let Some(resource) = &source.resource else {
                     continue;
                 };
-                if let Some(path) = resolve_resource(&concept.id, resource)
-                    && !files.contains(&path)
+                let is_missing = match crate::bundle::classify_resource_path(&concept.id, resource)
                 {
+                    crate::bundle::ResourceTarget::ExternalUri => false,
+                    crate::bundle::ResourceTarget::InvalidOrEscapes => true,
+                    crate::bundle::ResourceTarget::InBundle(path) => !files.contains(&path),
+                };
+                if is_missing {
                     findings.push(Finding {
                         concept_id: concept.id.clone(),
                         code: FindingCode::MissingSource,
@@ -430,10 +432,11 @@ pub fn check_provenance(bundle: &Bundle) -> Vec<Finding> {
 }
 
 /// Call four of the locked interface. Check every supersession
-/// chain in a bundle, including the rule that `superseded_by` has
-/// meaning only on a deprecated concept.
+/// chain head in a bundle, deduplicating shared tails and cycles, and
+/// enforce that `superseded_by` appears only on deprecated concepts.
 pub fn check_supersession(bundle: &Bundle) -> Vec<Finding> {
     let mut findings = Vec::new();
+    let mut referenced_targets: BTreeSet<String> = BTreeSet::new();
     for concept in &bundle.concepts {
         let Some(raw) = &concept.superseded_by else {
             continue;
@@ -445,11 +448,56 @@ pub fn check_supersession(bundle: &Bundle) -> Vec<Finding> {
                 detail: format!("superseded_by={raw} but status={}", concept.status),
             });
         }
+        if !raw.trim().is_empty()
+            && let Some((target, _)) = resolve_hop(bundle, &concept.id, raw)
+        {
+            referenced_targets.insert(target);
+        }
+    }
+
+    let mut visited: BTreeSet<String> = BTreeSet::new();
+    // First pass: walk every true chain head (zero incoming superseded_by edges).
+    for concept in &bundle.concepts {
+        if concept.superseded_by.is_none() || referenced_targets.contains(&concept.id) {
+            continue;
+        }
         let report = walk_supersession(bundle, &concept.id);
+        mark_chain_component(bundle, &concept.id, &mut visited);
         if let Some(finding) = report.finding {
             findings.push(finding);
         }
     }
+    // Second pass: walk canonical entry points for headless pure cycles.
+    for concept in &bundle.concepts {
+        if concept.superseded_by.is_none() || visited.contains(&concept.id) {
+            continue;
+        }
+        let report = walk_supersession(bundle, &concept.id);
+        mark_chain_component(bundle, &concept.id, &mut visited);
+        if let Some(finding) = report.finding {
+            findings.push(finding);
+        }
+    }
+
     sort_findings(&mut findings);
     findings
+}
+
+fn mark_chain_component(bundle: &Bundle, start: &str, visited: &mut BTreeSet<String>) {
+    let mut cur = start.to_string();
+    while visited.insert(cur.clone()) {
+        let Some(concept) = bundle.concept(&cur) else {
+            break;
+        };
+        let Some(raw) = &concept.superseded_by else {
+            break;
+        };
+        if raw.trim().is_empty() {
+            break;
+        }
+        let Some((next, _)) = resolve_hop(bundle, &cur, raw) else {
+            break;
+        };
+        cur = next;
+    }
 }
