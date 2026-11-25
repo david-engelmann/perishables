@@ -16,7 +16,7 @@ jobs:
     name: Hygiene and Zero-Dep Gate
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v7
       - name: Verify zero external dependencies in Cargo.lock
         run: |
           python3 - <<'PY'
@@ -64,7 +64,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v7
       - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
@@ -93,6 +93,11 @@ jobs:
         run: cargo doc --workspace --no-deps --locked
       - name: Run embedding example
         run: cargo run -p perishables-core --example audit_bundle --locked
+      - name: Build CLI and run Python SDK test suite
+        shell: bash
+        run: |
+          cargo build --locked -p perishables --bin perishables
+          python3 -m unittest discover -s python/tests -v || python -m unittest discover -s python/tests -v
 
   gates:
     name: gates

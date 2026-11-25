@@ -25,6 +25,7 @@
 <p align="center">
   <a href="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI on main"></a>
   <a href="https://crates.io/crates/perishables"><img src="https://img.shields.io/crates/v/perishables?color=c2410c&label=crates.io" alt="crates.io version"></a>
+  <a href="https://pypi.org/project/perishables/"><img src="https://img.shields.io/pypi/v/perishables?color=c2410c&label=pypi" alt="PyPI version"></a>
   <a href="https://docs.rs/perishables-core"><img src="https://img.shields.io/docsrs/perishables-core" alt="docs.rs"></a>
   <a href="Cargo.lock"><img src="https://img.shields.io/badge/external%20deps-0-success" alt="0 external dependencies"></a>
   <a href="LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="MIT or Apache-2.0 license"></a>
@@ -78,10 +79,23 @@ Documentation bundles, AI context packs, and enterprise semantic layers rot quie
 
 ## Quickstart
 
-Install `perishables` from crates.io, with `cargo binstall perishables`, or from the prebuilt Linux, macOS, and Windows archives on GitHub Releases.
+Install `perishables` from PyPI, from crates.io, with `cargo binstall perishables`, or from the prebuilt Linux, macOS, and Windows archives on GitHub Releases.
 
 ```sh
+pip install perishables
+# or run directly without installing
+uvx perishables --version
+# or install from crates.io
 cargo install perishables
+```
+
+The PyPI wheel bundles the native Rust `perishables` binary alongside a typed standard-library Python SDK.
+
+```python
+import perishables
+
+report = perishables.audit("corpus/fixtures/clean-team-verified", as_of="2026-11-20")
+report.raise_for_findings()
 ```
 
 ### Audit an OKF knowledge bundle
