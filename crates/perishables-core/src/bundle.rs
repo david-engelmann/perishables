@@ -2,11 +2,11 @@
 //!
 //! Loading never writes. Files are read in sorted path order so a
 //! bundle always loads identically. Reserved files (`index.md` and
-//! `log.md`) and hidden paths are not concepts. A Markdown file is a
-//! concept when its frontmatter parses and carries a `type`. A
-//! bundle root that cannot be read is an error, never an empty
-//! bundle, because an auditor that reports a clean pass over a
-//! bundle it could not read has failed at its only job.
+//! `log.md`), symlinks, and hidden paths are not concepts. A Markdown
+//! file is a concept when its frontmatter parses and carries a `type`.
+//! A bundle root that cannot be read is an error, never an empty
+//! bundle, because an auditor that reports a clean pass over a bundle
+//! it could not read has failed at its only job.
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -33,8 +33,10 @@ pub struct SourceRef {
 pub struct Parameter {
     /// The parameter name.
     pub name: String,
-    /// The declared value, when the bundle binds one. Values are
-    /// strings in the frontmatter and bind as strings.
+    /// The declared parameter type, such as `string`, `integer`,
+    /// `number`, or `boolean`, when specified in frontmatter.
+    pub param_type: Option<String>,
+    /// The declared value, when the bundle binds one.
     pub value: Option<String>,
 }
 
@@ -51,7 +53,7 @@ pub struct VerifiedEvent {
 }
 
 impl VerifiedEvent {
-    /// A well formed event has an actor and a parseable timestamp.
+    /// Whether this event has an actor and a parseable timestamp.
     pub fn is_well_formed(&self) -> bool {
         self.by.is_some() && self.at.is_some()
     }
@@ -68,8 +70,8 @@ impl VerifiedEvent {
         }
     }
 
-    /// The human scheme is the only one that can give the
-    /// human-reviewed tier.
+    /// Whether this event uses the `human:` actor scheme, the only
+    /// scheme that qualifies for the `human-reviewed` tier.
     pub fn is_human(&self) -> bool {
         self.by
             .as_deref()
@@ -80,11 +82,11 @@ impl VerifiedEvent {
 /// One concept and the trust fields the checks read.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Concept {
-    /// Bundle relative path without the `.md` suffix, posix style.
+    /// Bundle-relative path without the `.md` suffix, POSIX style.
     pub id: String,
-    /// The concept type, such as Metric or Attested Computation.
+    /// The concept type, such as `Metric` or `Attested Computation`.
     pub concept_type: String,
-    /// The lifecycle status. Absent status means stable.
+    /// The lifecycle status. Absent status means `stable`.
     pub status: String,
     /// The raw `superseded_by` value, when present.
     pub superseded_by: Option<String>,
@@ -98,15 +100,15 @@ pub struct Concept {
     pub stale_after: Option<i64>,
     /// Recorded verification events, in document order.
     pub verified: Vec<VerifiedEvent>,
-    /// The concept recorded sources.
+    /// The concept's recorded sources.
     pub sources: Vec<SourceRef>,
     /// The footnote labels the concept body cites.
     pub citations: Vec<String>,
-    /// The declared runtime, for Attested Computation concepts.
+    /// The declared runtime, for `Attested Computation` concepts.
     pub runtime: Option<String>,
-    /// The declared parameters, for Attested Computation concepts.
+    /// The declared parameters, for `Attested Computation` concepts.
     pub parameters: Vec<Parameter>,
-    /// The fenced code blocks of the body, language and code.
+    /// The fenced code blocks of the body, `(language, code)`.
     pub code_blocks: Vec<(String, String)>,
     /// The text of a computation file the body links to, when the
     /// computation lives in a file rather than inline.
@@ -122,47 +124,63 @@ pub struct Bundle {
     pub concepts: Vec<Concept>,
     /// The `okf_version` declared by the bundle index, when any.
     pub okf_version: Option<String>,
-    /// Every file in the bundle as a posix relative path, when the
-    /// bundle was loaded from disk. In memory bundles carry none,
-    /// and checks that need the inventory say so by skipping.
+    /// Every file in the bundle as a POSIX-relative path, when the
+    /// bundle was loaded from disk. In-memory bundles carry `None`,
+    /// and checks that need the inventory skip file existence checks.
     pub files: Option<std::collections::BTreeSet<String>>,
-    /// The bytes of in bundle sources that record a content hash,
-    /// keyed by bundle relative path. Only those files are read
-    /// into memory, because only the drift check needs bytes.
+    /// The bytes of in-bundle sources that record a content hash,
+    /// keyed by bundle-relative path.
     pub source_bytes: std::collections::BTreeMap<String, Vec<u8>>,
-    /// Modification times of in bundle source files, as epoch
-    /// seconds, keyed by bundle relative path. The drift ordering
-    /// note reads these.
+    /// Explicit source modification instants supplied by a caller
+    /// (for example from version-control commit timestamps), as epoch
+    /// seconds keyed by bundle-relative path. Disk loads leave this
+    /// map empty so host filesystem `mtime` never alters audit output.
     pub source_modified: std::collections::BTreeMap<String, i64>,
 }
 
-/// Whether a value carries a URI scheme, meaning a scheme token
-/// and a colon before any slash, as in `https:`, `mailto:`, or
-/// `urn:`. A value with a scheme is external by definition.
+/// Classification of a `sources.resource` or path field.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ResourceTarget {
+    /// External URI carrying an RFC 3986 scheme (such as `https://` or `s3://`).
+    ExternalUri,
+    /// Valid normalized POSIX path strictly within the bundle root.
+    InBundle(String),
+    /// Empty path, Windows drive path, or relative `..` path escaping the bundle root.
+    InvalidOrEscapes,
+}
+
+/// Whether a value carries an external URI scheme (`https:`, `s3:`,
+/// `mailto:`, `urn:`). Single-letter Windows drive prefixes (`C:\` or
+/// `C:/`) are local filesystem paths rather than URI schemes.
 pub(crate) fn has_uri_scheme(raw: &str) -> bool {
     let Some(colon) = raw.find(':') else {
         return false;
     };
-    if raw[..colon].contains('/') {
+    let scheme = &raw[..colon];
+    if scheme.len() < 2 || scheme.contains(['/', '\\']) {
         return false;
     }
-    let scheme = &raw[..colon];
     let mut chars = scheme.chars();
     chars.next().is_some_and(|c| c.is_ascii_alphabetic())
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '+' || c == '-' || c == '.')
 }
 
-/// Resolve a path field to a bundle relative file path. A leading
-/// slash resolves from the bundle root, anything else from the
-/// directory of the concept that carries the field. External URIs
-/// and paths that escape the bundle do not resolve.
-pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String> {
+/// Classify a path or resource string relative to `from_concept`.
+pub(crate) fn classify_resource_path(from_concept: &str, raw: &str) -> ResourceTarget {
     let raw = raw.trim();
-    if has_uri_scheme(raw) {
-        return None;
+    if raw.is_empty() {
+        return ResourceTarget::InvalidOrEscapes;
     }
-    let stripped = raw.strip_prefix('/').unwrap_or(raw);
-    let combined = if raw.starts_with('/') {
+    if has_uri_scheme(raw) {
+        return ResourceTarget::ExternalUri;
+    }
+    // Reject single-letter Windows drive paths such as `C:\secret.csv`.
+    if raw.len() >= 2 && raw.as_bytes()[0].is_ascii_alphabetic() && raw.as_bytes()[1] == b':' {
+        return ResourceTarget::InvalidOrEscapes;
+    }
+    let normalized = raw.replace('\\', "/");
+    let stripped = normalized.strip_prefix('/').unwrap_or(&normalized);
+    let combined = if normalized.starts_with('/') {
         stripped.to_string()
     } else {
         let parent = from_concept.rsplit_once('/').map(|(p, _)| p).unwrap_or("");
@@ -177,21 +195,34 @@ pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String>
         match segment {
             "" | "." => {}
             ".." => {
-                parts.pop()?;
+                if parts.pop().is_none() {
+                    return ResourceTarget::InvalidOrEscapes;
+                }
             }
             other => parts.push(other),
         }
     }
-    Some(parts.join("/"))
+    if parts.is_empty() {
+        ResourceTarget::InvalidOrEscapes
+    } else {
+        ResourceTarget::InBundle(parts.join("/"))
+    }
+}
+
+/// Resolve a path field to a bundle-relative file path. External URIs
+/// and paths that escape the bundle return `None`.
+pub(crate) fn resolve_file_path(from_concept: &str, raw: &str) -> Option<String> {
+    match classify_resource_path(from_concept, raw) {
+        ResourceTarget::InBundle(path) => Some(path),
+        ResourceTarget::ExternalUri | ResourceTarget::InvalidOrEscapes => None,
+    }
 }
 
 impl Bundle {
     /// Whether the SPEC 12.1 fallbacks apply to this bundle. They
-    /// apply when the bundle declares version 0.2 or earlier, or
-    /// declares no version at all. A declared version that does
-    /// not parse is treated as current, never as an old version,
-    /// because the fallback is granted to stated old versions and
-    /// to silence, not to garbage.
+    /// apply when the bundle declares version `0.2` or earlier, or
+    /// declares no version at all. A declared version that does not
+    /// parse is treated as current, never as an old version.
     pub fn uses_v02_fallback(&self) -> bool {
         match &self.okf_version {
             None => true,
@@ -213,6 +244,7 @@ impl Bundle {
         let okf_version = read_okf_version(root);
         let mut inventory = Vec::new();
         collect_files(root, &mut inventory)?;
+        inventory.sort();
         let files: std::collections::BTreeSet<String> = inventory
             .iter()
             .map(|path| {
@@ -244,11 +276,10 @@ impl Bundle {
             }
             let rel = path.strip_prefix(root).unwrap_or(path);
             let id = to_posix_id(rel);
-            concepts.push(concept_from_frontmatter(id, &fm, &text, root));
+            concepts.push(concept_from_frontmatter(id, &fm, &text, root, &files));
         }
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
         let mut source_bytes = std::collections::BTreeMap::new();
-        let mut source_modified = std::collections::BTreeMap::new();
         for concept in &concepts {
             for source in &concept.sources {
                 let Some(resource) = &source.resource else {
@@ -260,14 +291,9 @@ impl Bundle {
                 if !files.contains(&path) {
                     continue;
                 }
-                if source.sha256.is_some() {
-                    source_bytes.insert(path.clone(), fs::read(root.join(&path))?);
-                }
-                if let Ok(metadata) = fs::metadata(root.join(&path))
-                    && let Ok(modified) = metadata.modified()
-                    && let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH)
-                {
-                    source_modified.insert(path, duration.as_secs() as i64);
+                if source.sha256.is_some() && !source_bytes.contains_key(&path) {
+                    let disk_path = root.join(path_from_posix(&path));
+                    source_bytes.insert(path, fs::read(disk_path)?);
                 }
             }
         }
@@ -276,14 +302,11 @@ impl Bundle {
             okf_version,
             files: Some(files),
             source_bytes,
-            source_modified,
+            source_modified: std::collections::BTreeMap::new(),
         })
     }
 
-    /// Build a bundle from in memory concepts. This is a
-    /// constructor for consumers that parse bundles their own way
-    /// and want the checks run over the result. Nothing in this
-    /// repository calls it today.
+    /// Build a bundle from in-memory concepts.
     pub fn from_concepts(mut concepts: Vec<Concept>) -> Bundle {
         concepts.sort_by(|a, b| a.id.cmp(&b.id));
         Bundle {
@@ -295,34 +318,53 @@ impl Bundle {
         }
     }
 
-    /// One concept by id.
+    /// Look up one concept by id.
     pub fn concept(&self, id: &str) -> Option<&Concept> {
         self.concepts.iter().find(|c| c.id == id)
     }
+}
+
+fn path_from_posix(posix: &str) -> PathBuf {
+    let mut pb = PathBuf::new();
+    for seg in posix.split('/') {
+        if !seg.is_empty() {
+            pb.push(seg);
+        }
+    }
+    pb
 }
 
 fn collect_files(dir: &Path, out: &mut Vec<PathBuf>) -> std::io::Result<()> {
     let entries = fs::read_dir(dir)?;
     for entry in entries {
         let entry = entry?;
-        let path = entry.path();
         let name = entry.file_name().to_string_lossy().to_string();
         if name.starts_with('.') {
             continue;
         }
-        if path.is_dir() {
+        let ft = entry.file_type()?;
+        if ft.is_symlink() {
+            continue;
+        }
+        let path = entry.path();
+        if ft.is_dir() {
             collect_files(&path, out)?;
-        } else {
+        } else if ft.is_file() {
             out.push(path);
         }
     }
     Ok(())
 }
 
-/// The bundle index is a reserved file, not a concept, but it
-/// carries the declared `okf_version`.
+/// The bundle index is a reserved file, not a concept, and carries
+/// the declared `okf_version`.
 fn read_okf_version(root: &Path) -> Option<String> {
-    let text = fs::read_to_string(root.join("index.md")).ok()?;
+    let index_path = root.join("index.md");
+    let meta = fs::symlink_metadata(&index_path).ok()?;
+    if meta.file_type().is_symlink() || !meta.is_file() {
+        return None;
+    }
+    let text = fs::read_to_string(index_path).ok()?;
     let fm = parse_frontmatter(&text)?;
     fm.get("okf_version")
         .and_then(Value::as_str)
@@ -334,9 +376,13 @@ fn to_posix_id(rel: &Path) -> String {
     text.strip_suffix(".md").unwrap_or(&text).to_string()
 }
 
-/// The first Python file a body links to, read as text. A
-/// computation may live in a file rather than in a fenced block.
-fn linked_python_file(id: &str, body: &str, root: &Path) -> Option<String> {
+/// The first in-bundle Python file a body links to, read as text.
+fn linked_python_file(
+    id: &str,
+    body: &str,
+    root: &Path,
+    files: &std::collections::BTreeSet<String>,
+) -> Option<String> {
     let mut rest = body;
     while let Some(start) = rest.find("](") {
         let after = &rest[start + 2..];
@@ -346,15 +392,22 @@ fn linked_python_file(id: &str, body: &str, root: &Path) -> Option<String> {
         let target = after[..end].trim();
         if target.ends_with(".py")
             && let Some(path) = resolve_file_path(id, target)
+            && files.contains(&path)
         {
-            return fs::read_to_string(root.join(path)).ok();
+            return fs::read_to_string(root.join(path_from_posix(&path))).ok();
         }
         rest = &after[end + 1..];
     }
     None
 }
 
-fn concept_from_frontmatter(id: String, fm: &Value, text: &str, root: &Path) -> Concept {
+fn concept_from_frontmatter(
+    id: String,
+    fm: &Value,
+    text: &str,
+    root: &Path,
+    files: &std::collections::BTreeSet<String>,
+) -> Concept {
     let status = fm
         .get("status")
         .and_then(Value::as_str)
@@ -406,6 +459,7 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str, root: &Path) -> 
             if let Some(name) = item.get("name").and_then(Value::as_str) {
                 parameters.push(Parameter {
                     name: name.to_string(),
+                    param_type: item.get("type").and_then(Value::as_str).map(str::to_string),
                     value: item
                         .get("value")
                         .and_then(Value::as_str)
@@ -421,7 +475,7 @@ fn concept_from_frontmatter(id: String, fm: &Value, text: &str, root: &Path) -> 
         .and_then(Value::as_str)
         .map(str::to_string);
     let blocks = code_blocks(body);
-    let file_code = linked_python_file(&id, body, root);
+    let file_code = linked_python_file(&id, body, root, files);
     let claimed = claimed_result(body);
     let concept_type = fm
         .get("type")

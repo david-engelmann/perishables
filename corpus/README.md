@@ -1,7 +1,7 @@
-# The planted defect corpus
+# Planted-defect corpus
 
-This directory holds the corpus of small OKF bundles with planted trust defects. Each must fail fixture carries exactly one defect and a label that names the rule it trips. Each must pass fixture carries none. The manifest in this directory lists every fixture with its defect code, its expected finding, and the auditor version range the expectation applies to.
+This directory holds the `perishables` reference corpus of Open Knowledge Format bundles (`corpus_version = "0.2.0"`). Each `expect = "fail"` fixture plants a single trust defect and carries a `LABEL.toml` file naming the exact `FindingCode` and concept it trips. Each `expect = "pass"` fixture serves as a clean control that must produce zero findings.
 
-The corpus is a published artifact with its own version, recorded in the manifest. Any OKF tool can run these bundles and compare its own findings with the labels. A corpus release is cut alongside a tool release and is never edited silently.
+`corpus/manifest.toml` inventories all nineteen fixtures alongside the pinned `as_of` date (`2026-11-20`) and compatible auditor version range. Any OKF auditor can evaluate these bundles directly against `manifest.toml` and `LABEL.toml` without depending on the `perishables` binary.
 
-The first fixtures land with the first build round, seeded from the hand built bundles of the design phase.
+Run the reference gate from the repository root with `perishables corpus` or `perishables corpus --format json`. The runner verifies manifest completeness, checks every finding code and recomputed tier against `LABEL.toml`, and hashes each fixture directory before and after auditing to prove zero mutation.

@@ -1,9 +1,17 @@
 [package]
 name = "perishables-core"
-version = "0.1.0"
+version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
-description = "Trust layer checks for Open Knowledge Format bundles. Tier recompute, verification currency, supersession chains, and freshness, as a library."
+documentation = "https://docs.rs/perishables-core"
+readme = "README.md"
+description = "Deterministic trust-layer checks for Open Knowledge Format bundles. Tier recompute, verification currency, supersession chains, freshness, provenance, and source drift."
+keywords = ["okf", "knowledge", "audit", "provenance", "verification"]
+categories = ["data-structures", "parser-implementations", "development-tools"]
 
 [dependencies]
+
+[lints]
+workspace = true

@@ -3,11 +3,11 @@
 version = 4
 
 [[package]]
-name = "perishables-cli"
+name = "perishables"
 version = "0.1.0"
 dependencies = [
  "perishables-core",
- "perishables-dbt",
+ "perishables-semantic",
 ]
 
 [[package]]
@@ -15,5 +15,8 @@ name = "perishables-core"
 version = "0.1.0"
 
 [[package]]
-name = "perishables-dbt"
+name = "perishables-semantic"
 version = "0.1.0"
+dependencies = [
+ "perishables-core",
+]

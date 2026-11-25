@@ -1,0 +1,35 @@
+[package]
+name = "perishables"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/perishables"
+readme = "README.md"
+description = "Deterministic trust-claim auditor for Open Knowledge Format bundles and cross-ecosystem semantic layers."
+keywords = ["okf", "semantic-layer", "audit", "dbt", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+
+[lib]
+name = "perishables"
+path = "src/lib.rs"
+
+[[bin]]
+name = "perishables"
+path = "src/main.rs"
+
+[dependencies]
+perishables-core.workspace = true
+perishables-semantic.workspace = true
+
+[lints]
+workspace = true
+
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-v{ version }-{ target }{ archive-suffix }"
+bin-dir = "{ name }-v{ version }-{ target }/{ bin }{ binary-ext }"
+pkg-fmt = "tgz"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-fmt = "zip"

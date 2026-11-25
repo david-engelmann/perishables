@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to package (for example v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            archive: tar.gz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            archive: tar.gz
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            archive: zip
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install Rust 1.100.0
+        shell: bash
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal --target "${{ matrix.target }}"
+          rustup default 1.100.0
+      - name: Install cross-linker for Linux ARM64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: target/
+          key: release-${{ matrix.target }}-1.100.0-${{ hashFiles('**/Cargo.lock') }}
+      - name: Build release binary
+        shell: bash
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        run: cargo build --release --locked -p perishables --bin perishables --target "${{ matrix.target }}"
+      - name: Package archive
+        shell: bash
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          RAW_TAG="${INPUT_TAG:-${GITHUB_REF_NAME}}"
+          TAG="v${RAW_TAG#v}"
+          STAGE="perishables-${TAG}-${{ matrix.target }}"
+          mkdir -p "dist/${STAGE}"
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            cp "target/${{ matrix.target }}/release/perishables.exe" "dist/${STAGE}/"
+          else
+            cp "target/${{ matrix.target }}/release/perishables" "dist/${STAGE}/"
+          fi
+          cp README.md LICENSE-MIT LICENSE-APACHE "dist/${STAGE}/"
+          cd dist
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            7z a -tzip "${STAGE}.zip" "${STAGE}"
+          else
+            tar -czf "${STAGE}.tar.gz" "${STAGE}"
+          fi
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: archive-${{ matrix.target }}
+          path: |
+            dist/*.tar.gz
+            dist/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Generate SHA256SUMS and create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd artifacts
+          sha256sum perishables-* | sort -k 2 > SHA256SUMS
+          sha256sum --check SHA256SUMS
+          cat SHA256SUMS
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" perishables-* SHA256SUMS --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" perishables-* SHA256SUMS \
+              --title "perishables ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi

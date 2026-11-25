@@ -1,12 +1,25 @@
 [workspace]
 resolver = "3"
-members = ["crates/perishables-core", "crates/perishables-cli", "crates/perishables-dbt"]
+members = [
+    "crates/perishables-core",
+    "crates/perishables-semantic",
+    "crates/perishables",
+]
 
 [workspace.package]
+version = "0.1.0"
 edition = "2024"
+rust-version = "1.100"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/david-engelmann/perishables"
 
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+all = "deny"
+
 [workspace.dependencies]
-perishables-core = { path = "crates/perishables-core" }
-perishables-dbt = { path = "crates/perishables-dbt" }
+perishables-core = { version = "0.1.0", path = "crates/perishables-core" }
+perishables-semantic = { version = "0.1.0", path = "crates/perishables-semantic" }

@@ -1,0 +1,18 @@
+[package]
+name = "perishables-semantic"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/perishables-semantic"
+readme = "README.md"
+description = "Cross-ecosystem semantic-layer trust grader covering dbt, Apache Ossie, Snowflake, Databricks Genie, Cube, Looker and LookML, and AtScale."
+keywords = ["semantic-layer", "dbt", "lookml", "snowflake", "audit"]
+categories = ["development-tools", "parser-implementations"]
+
+[dependencies]
+perishables-core.workspace = true
+
+[lints]
+workspace = true

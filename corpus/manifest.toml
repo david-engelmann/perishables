@@ -5,7 +5,7 @@
 # release notes. Each fixture directory also carries its own
 # LABEL.toml with the same expectation in machine readable form.
 
-corpus_version = "0.1.0"
+corpus_version = "0.2.0"
 as_of = "2026-11-20"
 auditor_version_range = ">=0.1.0"
 
@@ -56,6 +56,12 @@ name = "t5-attested-mismatch"
 taxonomy = "T5"
 expect = "fail"
 expected_finding = "ATTESTED_RESULT_MISMATCH"
+
+[[fixture]]
+name = "t5-unattested-claim"
+taxonomy = "T5"
+expect = "fail"
+expected_finding = "UNATTESTED_CLAIM"
 
 [[fixture]]
 name = "t6-provenance-footnote"
