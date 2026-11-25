@@ -5,6 +5,7 @@
 //!   perishables corpus [fixtures-dir]
 //!   perishables drift <bundle>
 //!   perishables grade-dbt <manifest.json>
+//!   perishables grade-ossie <ossie.json>
 //!
 //! The audit command prints a tier line for every concept showing
 //! the raw and recomputed tiers, one line per computation verdict,
@@ -36,11 +37,13 @@ fn main() -> ExitCode {
         Some("corpus") => corpus(&args[1..]),
         Some("drift") => drift(&args[1..]),
         Some("grade-dbt") => grade_dbt(&args[1..]),
+        Some("grade-ossie") => grade_ossie(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> --as-of YYYY-MM-DD");
             eprintln!("       perishables corpus [fixtures-dir]");
             eprintln!("       perishables drift <bundle>");
             eprintln!("       perishables grade-dbt <manifest.json>");
+            eprintln!("       perishables grade-ossie <ossie.json>");
             ExitCode::from(2)
         }
     }
@@ -201,25 +204,29 @@ fn drift(args: &[String]) -> ExitCode {
     }
 }
 
-/// Grade one dbt semantic manifest. The cross ecosystem
-/// adapter's findings print in their own line shape because
-/// their codes are a separate closed set from the OKF codes.
-fn grade_dbt(args: &[String]) -> ExitCode {
-    let Some(manifest_path) = args.first() else {
-        eprintln!("grade-dbt needs a manifest JSON file");
+/// Grade one cross ecosystem definition file. The adapter's
+/// findings print in their own line shape because their codes
+/// are a separate closed set from the OKF codes.
+fn grade_file(
+    args: &[String],
+    tag: &str,
+    read: fn(&str) -> Result<perishables_dbt::Definition, String>,
+) -> ExitCode {
+    let Some(path) = args.first() else {
+        eprintln!("{tag} needs a definition JSON file");
         return ExitCode::from(2);
     };
-    let text = match std::fs::read_to_string(manifest_path) {
+    let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(err) => {
-            eprintln!("cannot read manifest {manifest_path}: {err}");
+            eprintln!("cannot read {path}: {err}");
             return ExitCode::from(2);
         }
     };
-    let def = match perishables_dbt::read_definition(&text) {
+    let def = match read(&text) {
         Ok(def) => def,
         Err(err) => {
-            eprintln!("cannot parse manifest {manifest_path}: {err}");
+            eprintln!("cannot parse {path}: {err}");
             return ExitCode::from(2);
         }
     };
@@ -236,7 +243,7 @@ fn grade_dbt(args: &[String]) -> ExitCode {
         println!("NOTE {} {}", note.item, note.text);
     }
     println!(
-        "GRADE-DBT models={} measures={} dimensions={} metrics={} findings={}",
+        "{tag} models={} measures={} dimensions={} metrics={} findings={}",
         def.model_names.len(),
         def.measures.len(),
         def.dimensions.len(),
@@ -248,6 +255,14 @@ fn grade_dbt(args: &[String]) -> ExitCode {
     } else {
         ExitCode::from(1)
     }
+}
+
+fn grade_dbt(args: &[String]) -> ExitCode {
+    grade_file(args, "GRADE-DBT", perishables_dbt::read_definition)
+}
+
+fn grade_ossie(args: &[String]) -> ExitCode {
+    grade_file(args, "GRADE-OSSIE", perishables_dbt::read_ossie_definition)
 }
 
 /// One parsed fixture label.

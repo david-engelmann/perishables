@@ -19,15 +19,24 @@
 //! information and never findings, in the posture the OKF
 //! auditor uses for a concept with no sources.
 //!
+//! Slice 2 adds the Apache Ossie reader beside the dbt one.
+//! Ossie documents carry an ai_context block whose synonyms
+//! are claims that an item answers to another name, so the
+//! model gains alias claims and the collision family reads
+//! them beside display names. See ossie.rs for the mapping and
+//! its stated boundary, the JSON form only in this slice.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
 
 mod json;
+mod ossie;
 
 use std::collections::BTreeMap;
 
 pub use json::Json;
+pub use ossie::read_ossie_definition;
 
 /// One measure inside a semantic model.
 #[derive(Debug, Clone, PartialEq)]
@@ -60,6 +69,17 @@ pub struct Metric {
     pub metric_refs: Vec<String>,
 }
 
+/// One alias claim. A synonym recorded for an item is a claim
+/// that the item also answers to that term, and it enters the
+/// collision family on the same footing as a display name.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Alias {
+    pub term: String,
+    /// The claiming item, in the same owner wording the
+    /// collision check uses, for example "field orders.region".
+    pub owner: String,
+}
+
 /// The normalized grading model for one manifest.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Definition {
@@ -67,6 +87,11 @@ pub struct Definition {
     pub measures: Vec<Measure>,
     pub dimensions: Vec<Dimension>,
     pub metrics: Vec<Metric>,
+    /// Alias claims from ecosystems that record synonyms. The
+    /// dbt reader leaves this empty in this slice, because
+    /// native dbt has no synonym field. The Ossie reader fills
+    /// it from ai_context.
+    pub aliases: Vec<Alias>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -274,6 +299,9 @@ pub fn check_collisions(def: &Definition) -> Vec<Finding> {
     }
     for d in &def.dimensions {
         claim(d.label.as_deref().unwrap_or(&d.name), format!("dimension {}", d.name));
+    }
+    for a in &def.aliases {
+        claim(&a.term, a.owner.clone());
     }
     let mut findings = Vec::new();
     for (display, mut owners) in claims {
