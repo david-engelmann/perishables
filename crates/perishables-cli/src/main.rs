@@ -317,8 +317,12 @@ fn grade_cube(args: &[String]) -> ExitCode {
 
 fn grade_looker(args: &[String]) -> ExitCode {
     // The API document and native LookML files are one
-    // surface, picked by extension.
+    // surface, picked by extension. Several LookML files
+    // grade as one project, with project scope.
     let native = args.first().is_some_and(|p| p.ends_with(".lookml"));
+    if native && args.len() > 1 {
+        return grade_lookml_project(args);
+    }
     if native {
         grade_file(
             args,
@@ -331,6 +335,26 @@ fn grade_looker(args: &[String]) -> ExitCode {
             "GRADE-LOOKER",
             perishables_dbt::read_looker_definition,
         )
+    }
+}
+
+fn grade_lookml_project(args: &[String]) -> ExitCode {
+    let mut files = Vec::new();
+    for path in args {
+        match std::fs::read_to_string(path) {
+            Ok(text) => files.push((path.clone(), text)),
+            Err(e) => {
+                eprintln!("error: cannot read {path}: {e}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    match perishables_dbt::read_lookml_project(&files) {
+        Ok(def) => print_grade(&def, "GRADE-LOOKER"),
+        Err(e) => {
+            eprintln!("error: cannot parse the project: {e}");
+            ExitCode::from(2)
+        }
     }
 }
 

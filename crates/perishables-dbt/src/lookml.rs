@@ -1,9 +1,9 @@
-//! The native LookML reader, slice 1 of the project the
-//! design record at docs/DESIGN-LOOKML.md scopes. A scanner
-//! and a block tree parser for the stated grammar subset,
-//! then the mapping onto the grading model. Files the subset
-//! cannot scan come back as reader errors, never as partial
-//! grades.
+//! The native LookML reader, slices 1 and 2 of the project
+//! the design record at docs/DESIGN-LOOKML.md scopes. A
+//! scanner and a block tree parser for the stated grammar
+//! subset, then the mapping onto the grading model. Files
+//! the subset cannot scan come back as reader errors, never
+//! as partial grades.
 //!
 //! The mapping follows the API reader where the two describe
 //! the same things, so a model grades the same from its
@@ -13,9 +13,11 @@
 //! aggregation over fields, so it maps to a metric whose
 //! measure references are the field references inside its
 //! SQL, the dollar brace form with the TABLE pseudo
-//! reference excluded. Cross view references, the dotted
-//! form, need project scope and wait for slice 2, as the
-//! design record states.
+//! reference excluded. Slice 2 adds project scope. Files
+//! merge, extends inherits fields and grades as a structural
+//! reference, dotted cross view references resolve against
+//! the project's qualified field set, and include patterns
+//! match against the provided file paths.
 
 use super::{Alias, Definition, Dimension, Metric, Relationship};
 
@@ -35,31 +37,94 @@ enum Value {
 
 /// Parse one LookML file's text into the grading model.
 pub fn read_lookml_definition(text: &str) -> Result<Definition, String> {
-    let items = parse_file(text)?;
-    let mut def = Definition::default();
-    for item in &items {
-        match item {
-            Item::Block(kind, Some(name), children) if kind == "view" => {
-                def.model_names.push(name.clone());
-                collect_view(children, name, &mut def);
+    read_lookml_project(&[("inline.lookml".to_string(), text.to_string())])
+}
+
+/// Parse a whole LookML project, as path and text pairs,
+/// into the grading model. Slice 2 of the design record.
+/// Views and explores merge across files, extends inherit,
+/// dotted cross view references resolve against the
+/// project's qualified field set, and include patterns are
+/// matched against the provided paths.
+pub fn read_lookml_project(files: &[(String, String)]) -> Result<Definition, String> {
+    let mut views: Vec<ViewData> = Vec::new();
+    let mut explores: Vec<(String, Vec<Item>)> = Vec::new();
+    let mut includes: Vec<String> = Vec::new();
+    for (_path, text) in files {
+        for item in parse_file(text)? {
+            match item {
+                Item::Block(kind, Some(name), children) if kind == "view" => {
+                    views.push(collect_view(&children, &name));
+                }
+                Item::Block(kind, Some(name), children) if kind == "explore" => {
+                    explores.push((name, children));
+                }
+                Item::Prop(key, Value::Single(pattern)) if key == "include" => {
+                    includes.push(pattern);
+                }
+                _ => {}
             }
-            Item::Block(kind, Some(name), children) if kind == "explore" => {
-                collect_explore(children, name, &mut def);
-            }
-            _ => {}
         }
+    }
+    let mut def = Definition::default();
+    let paths: Vec<&str> = files.iter().map(|(p, _)| p.as_str()).collect();
+    for pattern in &includes {
+        if !paths.iter().any(|p| include_matches(pattern, p)) {
+            def.unmatched_includes.push(pattern.clone());
+        }
+    }
+    resolve_extends(&mut views, &mut def);
+    for view in &views {
+        def.model_names.push(view.name.clone());
+        for dim in &view.dimensions {
+            def.qualified_fields
+                .push(format!("{}.{}", view.name, dim.name));
+            def.dimensions.push(dim.clone());
+        }
+        for metric in &view.metrics {
+            def.qualified_fields
+                .push(format!("{}.{}", view.name, metric.name));
+            def.metrics.push(metric.clone());
+        }
+        def.aliases.extend(view.aliases.iter().cloned());
+    }
+    for (name, children) in &explores {
+        collect_explore(children, name, &mut def);
     }
     Ok(def)
 }
 
-fn collect_view(children: &[Item], view: &str, def: &mut Definition) {
+/// One view's own fields, before extends inheritance.
+struct ViewData {
+    name: String,
+    dimensions: Vec<Dimension>,
+    metrics: Vec<Metric>,
+    aliases: Vec<Alias>,
+    extends: Vec<String>,
+}
+
+fn collect_view(children: &[Item], view: &str) -> ViewData {
+    let mut data = ViewData {
+        name: view.to_string(),
+        dimensions: Vec::new(),
+        metrics: Vec::new(),
+        aliases: Vec::new(),
+        extends: Vec::new(),
+    };
+    if let Some(Value::List(parents)) = prop(children, "extends") {
+        data.extends = parents.clone();
+    }
     for item in children {
         match item {
             Item::Block(kind, Some(name), fields)
                 if kind == "dimension" || kind == "dimension_group" =>
             {
-                push_aliases(fields, &format!("dimension {view}.{name}"), def);
-                def.dimensions.push(Dimension {
+                push_aliases(
+                    fields,
+                    &format!("dimension {view}.{name}"),
+                    &mut data.aliases,
+                );
+                data.dimensions.push(Dimension {
                     name: name.clone(),
                     label: prop_string(fields, "label"),
                     description: prop_string(fields, "description"),
@@ -67,14 +132,14 @@ fn collect_view(children: &[Item], view: &str, def: &mut Definition) {
                 });
             }
             Item::Block(kind, Some(name), fields) if kind == "measure" => {
-                push_aliases(fields, &format!("measure {view}.{name}"), def);
+                push_aliases(fields, &format!("measure {view}.{name}"), &mut data.aliases);
                 let mut refs = match prop(fields, "sql") {
                     Some(Value::Sql(sql)) => extract_refs(sql),
                     _ => Vec::new(),
                 };
                 refs.sort();
                 refs.dedup();
-                def.metrics.push(Metric {
+                data.metrics.push(Metric {
                     name: name.clone(),
                     label: prop_string(fields, "label"),
                     description: prop_string(fields, "description"),
@@ -84,6 +149,77 @@ fn collect_view(children: &[Item], view: &str, def: &mut Definition) {
                 });
             }
             _ => {}
+        }
+    }
+    data
+}
+
+/// Extends is a declared structural reference between
+/// views, so it enters as a relationship and the existing
+/// family grades a missing parent. Inheritance then merges
+/// each parent's fields into the child, the child's own
+/// fields winning on a name clash, over as many passes as
+/// the chain needs.
+fn resolve_extends(views: &mut Vec<ViewData>, def: &mut Definition) {
+    for view in views.iter() {
+        for parent in &view.extends {
+            def.relationships.push(Relationship {
+                name: format!("{}_to_{parent}", view.name),
+                left_table: view.name.clone(),
+                right_table: parent.clone(),
+            });
+        }
+    }
+    for _ in 0..views.len() {
+        let mut changed = false;
+        for i in 0..views.len() {
+            let parents = views[i].extends.clone();
+            for parent in parents {
+                let Some(parent_data) = views.iter().find(|v| v.name == parent) else {
+                    continue;
+                };
+                let parent_dims = parent_data.dimensions.clone();
+                let parent_metrics = parent_data.metrics.clone();
+                let child = &mut views[i];
+                for dim in parent_dims {
+                    if !child.dimensions.iter().any(|d| d.name == dim.name) {
+                        // An inherited field keeps its home
+                        // view as its model. It is the parent's
+                        // field made addressable through the
+                        // child, which the qualified field set
+                        // records, not a second competing claim
+                        // by the child.
+                        child.dimensions.push(dim);
+                        changed = true;
+                    }
+                }
+                for metric in parent_metrics {
+                    if !child.metrics.iter().any(|m| m.name == metric.name) {
+                        child.metrics.push(metric);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if !changed {
+            break;
+        }
+    }
+}
+
+/// A minimal include matcher. Patterns are matched on the
+/// path with any leading slash dropped, a star standing for
+/// any run of characters. That covers the forms model files
+/// use in practice, star dot extension and directory globs.
+fn include_matches(pattern: &str, path: &str) -> bool {
+    let pattern = pattern.strip_prefix('/').unwrap_or(pattern);
+    let path = path.strip_prefix('/').unwrap_or(path);
+    match pattern.split_once('*') {
+        None => pattern == path,
+        Some((prefix, suffix)) => {
+            path.len() >= prefix.len() + suffix.len()
+                && path.starts_with(prefix)
+                && path.ends_with(suffix)
         }
     }
 }
@@ -109,10 +245,10 @@ fn collect_explore(children: &[Item], explore: &str, def: &mut Definition) {
     }
 }
 
-fn push_aliases(fields: &[Item], owner: &str, def: &mut Definition) {
+fn push_aliases(fields: &[Item], owner: &str, aliases: &mut Vec<Alias>) {
     if let Some(Value::List(terms)) = prop(fields, "synonyms") {
         for term in terms {
-            def.aliases.push(Alias {
+            aliases.push(Alias {
                 term: term.clone(),
                 owner: owner.to_string(),
             });
@@ -135,8 +271,11 @@ fn prop_string(fields: &[Item], key: &str) -> Option<String> {
 }
 
 /// Field references inside a SQL chunk, the dollar brace
-/// form. Unqualified names only in this slice. The TABLE
-/// pseudo reference is Looker's own and claims nothing.
+/// form. Unqualified names are fields of the carrying view.
+/// Dotted names are cross view references, carried whole and
+/// resolved against the project's qualified field set. The
+/// TABLE pseudo reference is Looker's own and claims
+/// nothing.
 fn extract_refs(sql: &str) -> Vec<String> {
     let mut refs = Vec::new();
     let mut rest = sql;
@@ -144,7 +283,7 @@ fn extract_refs(sql: &str) -> Vec<String> {
         let after = &rest[start + 2..];
         let Some(end) = after.find('}') else { break };
         let name = after[..end].trim();
-        if !name.is_empty() && name != "TABLE" && !name.contains('.') {
+        if !name.is_empty() && name != "TABLE" && !name.starts_with("TABLE.") {
             refs.push(name.to_string());
         }
         rest = &after[end + 1..];

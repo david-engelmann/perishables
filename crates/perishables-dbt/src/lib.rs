@@ -57,6 +57,9 @@
 //! Slice 10 opens the native LookML reader, slice 1 of the
 //! project its design record scopes. See lookml.rs.
 //!
+//! Slice 11 is LookML slice 2, project scope, extends,
+//! cross view references, and include matching.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
@@ -78,7 +81,7 @@ pub use cube::{read_cube_definition, read_cube_yaml};
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;
-pub use lookml::read_lookml_definition;
+pub use lookml::{read_lookml_definition, read_lookml_project};
 pub use ossie::{read_ossie_definition, read_ossie_yaml};
 pub use snowflake::read_snowflake_definition;
 
@@ -213,6 +216,15 @@ pub struct Definition {
     /// AtScale hierarchy levels reference dimension
     /// attributes, which are neither measures nor metrics.
     pub attributes: Vec<String>,
+    /// Qualified field names, view.field, for readers with
+    /// project scope. A dotted reference resolves only
+    /// against this set. Only the LookML project reader
+    /// fills it in this slice.
+    pub qualified_fields: Vec<String>,
+    /// Include patterns from a project file that matched no
+    /// file in the provided set. Coverage observations, since
+    /// a partial set cannot prove the file absent.
+    pub unmatched_includes: Vec<String>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -383,10 +395,18 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
     // field set. Measures in the dbt sense, and dimensions
     // too, because a LookML measure's SQL references fields
     // of either kind and the reference is a field reference.
+    // A dotted reference is a cross view reference and
+    // resolves only against the qualified field set a
+    // project scoped reader supplies.
     let dimension_names: Vec<&str> = def.dimensions.iter().map(|d| d.name.as_str()).collect();
     for metric in &def.metrics {
         for r in &metric.measure_refs {
-            if !measure_names.contains(&r.as_str()) && !dimension_names.contains(&r.as_str()) {
+            let resolves = if r.contains('.') {
+                def.qualified_fields.iter().any(|q| q == r)
+            } else {
+                measure_names.contains(&r.as_str()) || dimension_names.contains(&r.as_str())
+            };
+            if !resolves {
                 findings.push(Finding {
                     code: Code::DanglingMetricReference,
                     item: metric.name.clone(),
@@ -593,6 +613,14 @@ pub fn notes(def: &Definition) -> Vec<Note> {
         out.push(Note {
             item: q.clone(),
             text: format!("sample question {q} carries no stored answer"),
+        });
+    }
+    for pattern in &def.unmatched_includes {
+        out.push(Note {
+            item: pattern.clone(),
+            text: format!(
+                "include pattern {pattern} matched no file in the provided set"
+            ),
         });
     }
     for context in &def.ai_contexts {
