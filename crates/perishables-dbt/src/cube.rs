@@ -3,9 +3,10 @@
 //! with its measures, dimensions, joins, descriptions, and
 //! meta in one document, and which the research names as
 //! offline gradeable beside the model files themselves. The
-//! YAML model file form joins it in the slice that closes
-//! that boundary, over the YAML reader, with the mapping
-//! shared. The JS model files remain a later surface.
+//! YAML model file form joins it over the YAML reader, with
+//! the mapping shared, and the JS model file form joins it
+//! over the JS subset reader in js.rs, with its own mapping
+//! for the keyed object shape JS uses.
 //!
 //! The mapping. Cubes and views are the models. Their
 //! measures and dimensions map as before. A cube's joins are
@@ -35,6 +36,65 @@ pub fn read_cube_definition(text: &str) -> Result<Definition, String> {
 pub fn read_cube_yaml(text: &str) -> Result<Definition, String> {
     let root = super::yaml::parse(text)?;
     Ok(definition_from(&root))
+}
+
+/// Parse a Cube model file in JavaScript form into the
+/// grading model, over the JS subset reader. In the JS
+/// form, measures, dimensions, and joins are objects keyed
+/// by member name rather than lists. A view call contributes
+/// its name as a model in this slice. A view's member
+/// selection is a reference surface of its own and is
+/// stated here as the boundary, not silently dropped.
+pub fn read_cube_js(text: &str) -> Result<Definition, String> {
+    let calls = super::js::parse_calls(text)?;
+    let mut def = Definition::default();
+    for call in &calls {
+        if call.name != "cube" && call.name != "view" {
+            continue;
+        }
+        let Some(Json::Str(name)) = call.args.first() else {
+            continue;
+        };
+        def.model_names.push(name.clone());
+        if call.name == "view" {
+            continue;
+        }
+        let Some(Json::Map(object)) = call.args.get(1) else {
+            continue;
+        };
+        if let Some(Json::Map(measures)) = object.get("measures") {
+            for (member, item) in measures {
+                collect_context(item, &format!("measure {name}.{member}"), &mut def);
+                def.measures.push(Measure {
+                    name: member.clone(),
+                    label: opt_text_of(item, "title"),
+                    description: opt_text_of(item, "description"),
+                    model: name.clone(),
+                });
+            }
+        }
+        if let Some(Json::Map(dims)) = object.get("dimensions") {
+            for (member, item) in dims {
+                collect_context(item, &format!("dimension {name}.{member}"), &mut def);
+                def.dimensions.push(Dimension {
+                    name: member.clone(),
+                    label: opt_text_of(item, "title"),
+                    description: opt_text_of(item, "description"),
+                    model: name.clone(),
+                });
+            }
+        }
+        if let Some(Json::Map(joins)) = object.get("joins") {
+            for target in joins.keys() {
+                def.relationships.push(Relationship {
+                    name: format!("{name}_to_{target}"),
+                    left_table: name.clone(),
+                    right_table: target.clone(),
+                });
+            }
+        }
+    }
+    Ok(def)
 }
 
 /// The mapping itself, over a parsed document of either

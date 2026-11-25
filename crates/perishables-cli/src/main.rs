@@ -303,13 +303,13 @@ fn grade_databricks(args: &[String]) -> ExitCode {
 }
 
 fn grade_cube(args: &[String]) -> ExitCode {
-    // Meta JSON and YAML model files are one surface, picked
-    // by extension, grading identically.
-    let yaml = args
-        .first()
-        .is_some_and(|p| p.ends_with(".yaml") || p.ends_with(".yml"));
-    if yaml {
+    // Meta JSON, YAML model files, and JS model files are
+    // one surface, picked by extension, grading identically.
+    let path = args.first().map(String::as_str).unwrap_or_default();
+    if path.ends_with(".yaml") || path.ends_with(".yml") {
         grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_yaml)
+    } else if path.ends_with(".js") {
+        grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_js)
     } else {
         grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_definition)
     }

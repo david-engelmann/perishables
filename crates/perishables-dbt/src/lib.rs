@@ -41,6 +41,7 @@
 mod atscale;
 mod cube;
 mod databricks;
+mod js;
 mod json;
 mod looker;
 mod lookml;
@@ -51,7 +52,7 @@ mod yaml;
 use std::collections::BTreeMap;
 
 pub use atscale::read_atscale_definition;
-pub use cube::{read_cube_definition, read_cube_yaml};
+pub use cube::{read_cube_definition, read_cube_js, read_cube_yaml};
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;

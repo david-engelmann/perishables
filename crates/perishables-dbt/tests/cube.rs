@@ -1,6 +1,6 @@
 //! The Cube gate, on the meta JSON shape.
 
-use perishables_dbt::{Code, grade, notes, read_cube_definition, read_cube_yaml};
+use perishables_dbt::{Code, grade, notes, read_cube_definition, read_cube_js, read_cube_yaml};
 
 fn load(name: &str) -> perishables_dbt::Definition {
     let path = format!("{}/tests/fixtures/{name}.json", env!("CARGO_MANIFEST_DIR"));
@@ -47,6 +47,43 @@ fn yaml_model_files_grade_like_the_meta_form() {
     let findings = grade(&dangling);
     assert_eq!(findings.len(), 1, "got {findings:?}");
     assert_eq!(findings[0].code, Code::DanglingRelationship);
+}
+
+#[test]
+fn js_model_files_grade() {
+    // The JS fixtures mirror the meta fixtures' model, in
+    // the keyed object form JS uses. The verdicts must
+    // match the other forms.
+    let path = format!(
+        "{}/tests/fixtures/cube-clean.js",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    let def = read_cube_js(&text).unwrap_or_else(|e| panic!("parse js: {e}"));
+    assert_eq!(def.model_names.len(), 2);
+    assert_eq!(def.relationships.len(), 1);
+    assert_eq!(def.ai_contexts.len(), 1);
+    assert!(grade(&def).is_empty(), "got {:?}", grade(&def));
+    assert!(notes(&def).is_empty());
+
+    let path = format!(
+        "{}/tests/fixtures/cube-dangling.js",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    let def = read_cube_js(&text).unwrap_or_else(|e| panic!("parse js: {e}"));
+    let findings = grade(&def);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingRelationship);
+    assert_eq!(findings[0].item, "orders_to_shipments");
+}
+
+#[test]
+fn js_outside_the_subset_is_a_reader_error() {
+    // A function value is outside the stated subset. The
+    // reader must refuse, not grade partially.
+    let text = "cube(`orders`, { measures: { x: { sql: () => 1 } } });";
+    assert!(read_cube_js(text).is_err());
 }
 
 #[test]

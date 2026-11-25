@@ -21,7 +21,7 @@ The checks also live in a library crate named perishables-core, so other tools c
 
 ## Grading semantic layers
 
-The same discipline applies to the semantic layers AI tools answer from, and a second crate grades them. A semantic definition makes claims of the same kinds. A name claimed by two definitions, a reference to a measure or a field that does not exist, a verification recorded before the thing it verifies last changed, a stored benchmark with no answer behind it. Each ecosystem gets a reader that normalizes its definition into one grading model, and the rule families run over the model, format blind. The readers cover dbt semantic manifests, Apache Ossie documents in JSON and YAML, Snowflake semantic views, Databricks Genie serialized spaces, Cube models as meta JSON and as YAML model files, Looker models as API documents and as native LookML files with project scope, and AtScale model exports.
+The same discipline applies to the semantic layers AI tools answer from, and a second crate grades them. A semantic definition makes claims of the same kinds. A name claimed by two definitions, a reference to a measure or a field that does not exist, a verification recorded before the thing it verifies last changed, a stored benchmark with no answer behind it. Each ecosystem gets a reader that normalizes its definition into one grading model, and the rule families run over the model, format blind. The readers cover dbt semantic manifests, Apache Ossie documents in JSON and YAML, Snowflake semantic views, Databricks Genie serialized spaces, Cube models as meta JSON, YAML model files, and JS model files, Looker models as API documents and as native LookML files with project scope, and AtScale model exports.
 
 ```text
 perishables grade-dbt manifest.json
@@ -31,6 +31,7 @@ perishables grade-snowflake view.yaml --changed-at 2026-11-20
 perishables grade-databricks space.json
 perishables grade-cube meta.json
 perishables grade-cube model.yaml
+perishables grade-cube model.js
 perishables grade-looker model.json
 perishables grade-looker orders.view.lookml customers.view.lookml sales.model.lookml
 perishables grade-atscale model.json
