@@ -39,10 +39,14 @@
 //! running them stays with the vendor runtime. See
 //! databricks.rs.
 //!
+//! Slice 5 adds the Cube reader, the fourth ecosystem the
+//! design record names, on its meta JSON. See cube.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
 
+mod cube;
 mod databricks;
 mod json;
 mod ossie;
@@ -51,6 +55,7 @@ mod yaml;
 
 use std::collections::BTreeMap;
 
+pub use cube::read_cube_definition;
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use ossie::read_ossie_definition;
@@ -135,6 +140,17 @@ pub struct GroundTruth {
     pub expected_sql: String,
 }
 
+/// One ai_context block recorded on an item, by character
+/// count. Cube truncates ai_context at 2,000 characters
+/// silently, so the count itself is a gradeable stated fact.
+/// The text is not carried, because nothing in the families
+/// reads prose.
+#[derive(Debug, Clone, PartialEq)]
+pub struct AiContext {
+    pub owner: String,
+    pub chars: usize,
+}
+
 /// The normalized grading model for one manifest.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Definition {
@@ -167,6 +183,10 @@ pub struct Definition {
     /// observations, because the platform never claimed an
     /// answer for them.
     pub unverifiable_questions: Vec<String>,
+    /// ai_context blocks recorded on items, by owner and
+    /// character count. Only the Cube reader fills this in
+    /// this slice.
+    pub ai_contexts: Vec<AiContext>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -542,6 +562,17 @@ pub fn notes(def: &Definition) -> Vec<Note> {
             item: q.clone(),
             text: format!("sample question {q} carries no stored answer"),
         });
+    }
+    for context in &def.ai_contexts {
+        if context.chars >= 2_000 {
+            out.push(Note {
+                item: context.owner.clone(),
+                text: format!(
+                    "ai_context on {} runs {} characters, at or past the 2000 character limit Cube truncates silently",
+                    context.owner, context.chars
+                ),
+            });
+        }
     }
     out.sort_by(|a, b| a.item.cmp(&b.item).then(a.text.cmp(&b.text)));
     out

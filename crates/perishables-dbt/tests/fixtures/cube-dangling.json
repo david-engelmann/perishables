@@ -1,0 +1,1 @@
+{"cubes":[{"dimensions":[],"joins":[{"name":"shipments","relationship":"one_to_many","sql":"{CUBE}.id = {shipments}.order_id"}],"measures":[{"description":"Gross revenue.","name":"orders.revenue","title":"Revenue"}],"name":"orders","title":"Orders","type":"cube"}]}

@@ -8,6 +8,7 @@
 //!   perishables grade-ossie <ossie.json>
 //!   perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]
 //!   perishables grade-databricks <space.json>
+//!   perishables grade-cube <meta.json>
 //!
 //! The audit command prints a tier line for every concept showing
 //! the raw and recomputed tiers, one line per computation verdict,
@@ -42,6 +43,7 @@ fn main() -> ExitCode {
         Some("grade-ossie") => grade_ossie(&args[1..]),
         Some("grade-snowflake") => grade_snowflake(&args[1..]),
         Some("grade-databricks") => grade_databricks(&args[1..]),
+        Some("grade-cube") => grade_cube(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> --as-of YYYY-MM-DD");
             eprintln!("       perishables corpus [fixtures-dir]");
@@ -50,6 +52,7 @@ fn main() -> ExitCode {
             eprintln!("       perishables grade-ossie <ossie.json>");
             eprintln!("       perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]");
             eprintln!("       perishables grade-databricks <space.json>");
+            eprintln!("       perishables grade-cube <meta.json>");
             ExitCode::from(2)
         }
     }
@@ -282,6 +285,10 @@ fn grade_databricks(args: &[String]) -> ExitCode {
         "GRADE-DATABRICKS",
         perishables_dbt::read_databricks_definition,
     )
+}
+
+fn grade_cube(args: &[String]) -> ExitCode {
+    grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_definition)
 }
 
 /// Grade one Snowflake semantic view YAML. The currency
