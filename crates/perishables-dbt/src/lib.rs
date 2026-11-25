@@ -1,64 +1,38 @@
-//! Cross ecosystem grading for dbt semantic manifests.
+//! Cross ecosystem grading for semantic layer definitions.
 //!
-//! This adapter is the first build from the cross ecosystem
-//! design record at docs/DESIGN-CROSS-ECOSYSTEM.md. It reads a
-//! dbt semantic manifest, the artifact `dbt parse` writes as
-//! semantic_manifest.json, or the semantic_models and metrics
-//! keys of a full manifest.json, into one normalized grading
-//! model, and runs two rule families over it.
+//! This crate is the adapter from the cross ecosystem design
+//! record at docs/DESIGN-CROSS-ECOSYSTEM.md. Each ecosystem
+//! gets a reader that normalizes its definition into one
+//! grading model, and the rule families below run over the
+//! model, format blind. The crate keeps the name
+//! perishables-dbt from its first slice. The name is
+//! historical, and renaming it is a separate change.
 //!
-//! Structural integrity, in its first form, is the dangling
-//! reference check. A metric built on a measure or an input
-//! metric that does not exist is the semantic layer form of a
-//! dangling superseded_by target.
+//! The readers. dbt semantic manifests. Apache Ossie
+//! documents, JSON and YAML. Snowflake semantic views.
+//! Databricks Genie serialized spaces. Cube models, meta
+//! JSON and YAML model files. Looker models, API documents
+//! and native LookML files with project scope. AtScale
+//! model exports. Each reader's own module states its
+//! mapping and its boundary.
 //!
-//! Discoverability, in its first form, is the name collision
-//! check plus coverage notes. Two gradeable items answering to
-//! the same label are two live claims to one name. Missing
-//! descriptions and unreferenced measures are reported as notes,
-//! information and never findings, in the posture the OKF
-//! auditor uses for a concept with no sources.
+//! The families. Structural integrity grades references,
+//! a metric built on a measure that does not exist, a
+//! relationship or join naming a missing table or view, a
+//! hierarchy level on a missing attribute. Discoverability
+//! grades names and coverage, a display name or synonym
+//! claimed by two definitions is a finding, and missing
+//! descriptions and kindred gaps are notes, information and
+//! never findings. Currency grades verification events
+//! against the definition's last change, where the platform
+//! records them. Ground truth shape grades stored question
+//! and answer pairs for completeness. Running that ground
+//! truth belongs to the vendor runtime and is outside every
+//! reader here.
 //!
-//! Slice 2 adds the Apache Ossie reader beside the dbt one.
-//! Ossie documents carry an ai_context block whose synonyms
-//! are claims that an item answers to another name, so the
-//! model gains alias claims and the collision family reads
-//! them beside display names. See ossie.rs for the mapping and
-//! its stated boundary, the JSON form only in this slice.
-//!
-//! Slice 3 adds the Snowflake reader and the currency family.
-//! A Snowflake verified query is a verification event, current
-//! when it stands at or after the definition's last change,
-//! and the model gains verification events, declared
-//! relationships, and a changed_at instant the caller supplies
-//! from outside the definition. See snowflake.rs and yaml.rs.
-//!
-//! Slice 4 adds the Databricks reader. A serialized Genie
-//! space carries stored ground truth, and the model gains
-//! ground truth pairs whose shape grades offline, while
-//! running them stays with the vendor runtime. See
-//! databricks.rs.
-//!
-//! Slice 5 adds the Cube reader, the fourth ecosystem the
-//! design record names, on its meta JSON. See cube.rs.
-//!
-//! Slice 6 adds the Looker reader, on the API's assembled
-//! view and explore documents. See looker.rs.
-//!
-//! Slice 7 adds the AtScale reader, and the model gains an
-//! attribute set that references may resolve against. See
-//! atscale.rs.
-//!
-//! Slice 8 closes the Ossie boundary. The YAML form reads
-//! through the same mapping as the JSON form.
-//!
-//! Slice 9 closes the Cube boundary the same way.
-//!
-//! Slice 10 opens the native LookML reader, slice 1 of the
-//! project its design record scopes. See lookml.rs.
-//!
-//! Slice 11 is LookML slice 2, project scope, extends,
-//! cross view references, and include matching.
+//! The build history lives in the round records under
+//! docs/, one per slice, and each reader module carries its
+//! own slice notes where they matter.
 //!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
