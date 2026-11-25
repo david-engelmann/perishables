@@ -1,0 +1,1 @@
+{"benchmarks":{"questions":[{"answer":[],"id":"deadbeef","question":["What is average order value?"]}]},"data_sources":{"tables":[{"column_configs":[{"name":"amount"}],"identifier":"sales.public.orders"}]},"version":2}

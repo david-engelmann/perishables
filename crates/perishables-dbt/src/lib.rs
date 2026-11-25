@@ -33,10 +33,17 @@
 //! relationships, and a changed_at instant the caller supplies
 //! from outside the definition. See snowflake.rs and yaml.rs.
 //!
+//! Slice 4 adds the Databricks reader. A serialized Genie
+//! space carries stored ground truth, and the model gains
+//! ground truth pairs whose shape grades offline, while
+//! running them stays with the vendor runtime. See
+//! databricks.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
 
+mod databricks;
 mod json;
 mod ossie;
 mod snowflake;
@@ -44,6 +51,7 @@ mod yaml;
 
 use std::collections::BTreeMap;
 
+pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use ossie::read_ossie_definition;
 pub use snowflake::read_snowflake_definition;
@@ -112,6 +120,21 @@ pub struct Relationship {
     pub right_table: String,
 }
 
+/// One stored ground truth pair, a question and the answer
+/// the platform is claimed to produce for it. Databricks
+/// benchmarks and Snowflake verified queries both store these.
+/// Running them is the behavioral family and needs the vendor
+/// runtime. This model records the claim itself, so its shape
+/// can be graded offline.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GroundTruth {
+    /// The pair's identifier, a benchmark id where the
+    /// platform gives one.
+    pub item: String,
+    pub question: String,
+    pub expected_sql: String,
+}
+
 /// The normalized grading model for one manifest.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Definition {
@@ -136,6 +159,14 @@ pub struct Definition {
     /// for Snowflake, and the currency check grades against it
     /// only when it is present.
     pub changed_at: Option<i64>,
+    /// Stored ground truth pairs the definition carries.
+    /// Only the Databricks reader fills this in this slice.
+    pub ground_truth: Vec<GroundTruth>,
+    /// Questions the definition offers with no stored answer,
+    /// Genie sample questions in this slice. They are coverage
+    /// observations, because the platform never claimed an
+    /// answer for them.
+    pub unverifiable_questions: Vec<String>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -146,6 +177,7 @@ pub enum Code {
     NameCollision,
     LapsedVerifiedQuery,
     DanglingRelationship,
+    BenchmarkWithoutAnswer,
 }
 
 impl Code {
@@ -155,6 +187,7 @@ impl Code {
             Code::NameCollision => "NAME_COLLISION",
             Code::LapsedVerifiedQuery => "LAPSED_VERIFIED_QUERY",
             Code::DanglingRelationship => "DANGLING_RELATIONSHIP",
+            Code::BenchmarkWithoutAnswer => "BENCHMARK_WITHOUT_ANSWER",
         }
     }
 }
@@ -419,6 +452,30 @@ pub fn check_relationships(def: &Definition) -> Vec<Finding> {
     findings
 }
 
+/// Ground truth shape. A stored benchmark is a claim that
+/// the platform answers this question with this SQL. A pair
+/// with an empty question or an empty answer is a claim with
+/// nothing behind it, and no behavioral run could ever grade
+/// it, which is a defect in the record rather than a coverage
+/// gap.
+pub fn check_ground_truth(def: &Definition) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for pair in &def.ground_truth {
+        if pair.question.trim().is_empty() || pair.expected_sql.trim().is_empty() {
+            findings.push(Finding {
+                code: Code::BenchmarkWithoutAnswer,
+                item: pair.item.clone(),
+                detail: format!(
+                    "benchmark {} stores a question or an answer that is empty, so no run could grade it",
+                    pair.item
+                ),
+            });
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
 /// Coverage and orphan observations, as notes.
 pub fn notes(def: &Definition) -> Vec<Note> {
     let mut out = Vec::new();
@@ -480,6 +537,12 @@ pub fn notes(def: &Definition) -> Vec<Note> {
             });
         }
     }
+    for q in &def.unverifiable_questions {
+        out.push(Note {
+            item: q.clone(),
+            text: format!("sample question {q} carries no stored answer"),
+        });
+    }
     out.sort_by(|a, b| a.item.cmp(&b.item).then(a.text.cmp(&b.text)));
     out
 }
@@ -491,6 +554,7 @@ pub fn grade(def: &Definition) -> Vec<Finding> {
     findings.extend(check_collisions(def));
     findings.extend(check_currency(def));
     findings.extend(check_relationships(def));
+    findings.extend(check_ground_truth(def));
     sort_findings(&mut findings);
     findings
 }
