@@ -3,8 +3,9 @@
 //! with its measures, dimensions, joins, descriptions, and
 //! meta in one document, and which the research names as
 //! offline gradeable beside the model files themselves. The
-//! YAML and JS model files are the follow on surface, stated
-//! here as this slice's boundary.
+//! YAML model file form joins it in the slice that closes
+//! that boundary, over the YAML reader, with the mapping
+//! shared. The JS model files remain a later surface.
 //!
 //! The mapping. Cubes and views are the models. Their
 //! measures and dimensions map as before. A cube's joins are
@@ -23,6 +24,22 @@ use super::{AiContext, Definition, Dimension, Json, Measure, Relationship};
 /// Parse Cube meta JSON text into the grading model.
 pub fn read_cube_definition(text: &str) -> Result<Definition, String> {
     let root = super::json::parse(text)?;
+    Ok(definition_from(&root))
+}
+
+/// Parse a Cube model file in YAML form into the grading
+/// model. The model file shape matches the meta shape the
+/// mapping consumes, unqualified member names where meta
+/// qualifies them, and the shared mapping shortens both.
+/// The two forms of the same model grade identically.
+pub fn read_cube_yaml(text: &str) -> Result<Definition, String> {
+    let root = super::yaml::parse(text)?;
+    Ok(definition_from(&root))
+}
+
+/// The mapping itself, over a parsed document of either
+/// form.
+fn definition_from(root: &Json) -> Definition {
     let mut def = Definition::default();
     if let Some(cubes) = root.get("cubes").and_then(Json::as_list) {
         for cube in cubes {
@@ -41,7 +58,7 @@ pub fn read_cube_definition(text: &str) -> Result<Definition, String> {
             }
         }
     }
-    Ok(def)
+    def
 }
 
 /// Measures, dimensions, and ai_context counts for one cube

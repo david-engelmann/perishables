@@ -1,0 +1,24 @@
+cubes:
+  - name: orders
+    title: Orders
+    measures:
+      - name: revenue
+        title: Revenue
+        description: Gross revenue.
+        meta:
+          ai_context: Revenue is gross of refunds.
+    dimensions:
+      - name: region
+        title: Region
+        description: Sales region.
+    joins:
+      - name: customers
+        relationship: many_to_one
+        sql: "{CUBE}.customer_id = {customers}.id"
+  - name: customers
+    title: Customers
+    measures: []
+    dimensions:
+      - name: name
+        title: Name
+        description: Customer name.

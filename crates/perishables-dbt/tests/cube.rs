@@ -1,11 +1,17 @@
 //! The Cube gate, on the meta JSON shape.
 
-use perishables_dbt::{Code, grade, notes, read_cube_definition};
+use perishables_dbt::{Code, grade, notes, read_cube_definition, read_cube_yaml};
 
 fn load(name: &str) -> perishables_dbt::Definition {
     let path = format!("{}/tests/fixtures/{name}.json", env!("CARGO_MANIFEST_DIR"));
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
     read_cube_definition(&text).unwrap_or_else(|e| panic!("parse {name}: {e}"))
+}
+
+fn load_yaml(name: &str) -> perishables_dbt::Definition {
+    let path = format!("{}/tests/fixtures/{name}.yaml", env!("CARGO_MANIFEST_DIR"));
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    read_cube_yaml(&text).unwrap_or_else(|e| panic!("parse {name}: {e}"))
 }
 
 #[test]
@@ -24,6 +30,23 @@ fn clean_model_grades_clean() {
         found_notes.is_empty(),
         "described, short context, got {found_notes:?}"
     );
+}
+
+#[test]
+fn yaml_model_files_grade_like_the_meta_form() {
+    // The YAML fixtures mirror the meta fixtures cube for
+    // cube, so the two forms of the same model must produce
+    // equal models and equal verdicts. The empty measures
+    // list on customers also pins the YAML reader's empty
+    // flow list handling.
+    let from_yaml = load_yaml("cube-clean");
+    let from_json = load("cube-clean");
+    assert_eq!(from_yaml, from_json);
+    assert!(grade(&from_yaml).is_empty());
+    let dangling = load_yaml("cube-dangling");
+    let findings = grade(&dangling);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingRelationship);
 }
 
 #[test]

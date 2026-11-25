@@ -303,7 +303,16 @@ fn grade_databricks(args: &[String]) -> ExitCode {
 }
 
 fn grade_cube(args: &[String]) -> ExitCode {
-    grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_definition)
+    // Meta JSON and YAML model files are one surface, picked
+    // by extension, grading identically.
+    let yaml = args
+        .first()
+        .is_some_and(|p| p.ends_with(".yaml") || p.ends_with(".yml"));
+    if yaml {
+        grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_yaml)
+    } else {
+        grade_file(args, "GRADE-CUBE", perishables_dbt::read_cube_definition)
+    }
 }
 
 fn grade_looker(args: &[String]) -> ExitCode {

@@ -52,6 +52,8 @@
 //! Slice 8 closes the Ossie boundary. The YAML form reads
 //! through the same mapping as the JSON form.
 //!
+//! Slice 9 closes the Cube boundary the same way.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
@@ -68,7 +70,7 @@ mod yaml;
 use std::collections::BTreeMap;
 
 pub use atscale::read_atscale_definition;
-pub use cube::read_cube_definition;
+pub use cube::{read_cube_definition, read_cube_yaml};
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;
