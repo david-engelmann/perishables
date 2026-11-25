@@ -6,6 +6,7 @@
 //!   perishables drift <bundle>
 //!   perishables grade-dbt <manifest.json>
 //!   perishables grade-ossie <ossie.json>
+//!   perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]
 //!
 //! The audit command prints a tier line for every concept showing
 //! the raw and recomputed tiers, one line per computation verdict,
@@ -38,12 +39,14 @@ fn main() -> ExitCode {
         Some("drift") => drift(&args[1..]),
         Some("grade-dbt") => grade_dbt(&args[1..]),
         Some("grade-ossie") => grade_ossie(&args[1..]),
+        Some("grade-snowflake") => grade_snowflake(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> --as-of YYYY-MM-DD");
             eprintln!("       perishables corpus [fixtures-dir]");
             eprintln!("       perishables drift <bundle>");
             eprintln!("       perishables grade-dbt <manifest.json>");
             eprintln!("       perishables grade-ossie <ossie.json>");
+            eprintln!("       perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]");
             ExitCode::from(2)
         }
     }
@@ -230,7 +233,12 @@ fn grade_file(
             return ExitCode::from(2);
         }
     };
-    let findings = perishables_dbt::grade(&def);
+    print_grade(&def, tag)
+}
+
+/// Print one graded definition and return the gate exit code.
+fn print_grade(def: &perishables_dbt::Definition, tag: &str) -> ExitCode {
+    let findings = perishables_dbt::grade(def);
     for finding in &findings {
         println!(
             "FINDING {} {} {}",
@@ -239,7 +247,7 @@ fn grade_file(
             finding.detail
         );
     }
-    for note in perishables_dbt::notes(&def) {
+    for note in perishables_dbt::notes(def) {
         println!("NOTE {} {}", note.item, note.text);
     }
     println!(
@@ -263,6 +271,46 @@ fn grade_dbt(args: &[String]) -> ExitCode {
 
 fn grade_ossie(args: &[String]) -> ExitCode {
     grade_file(args, "GRADE-OSSIE", perishables_dbt::read_ossie_definition)
+}
+
+/// Grade one Snowflake semantic view YAML. The currency
+/// family needs the instant the view last changed, which the
+/// definition does not store, so the caller supplies it from
+/// object metadata with --changed-at. Without it the currency
+/// family stays silent and the rest still grade.
+fn grade_snowflake(args: &[String]) -> ExitCode {
+    let Some(path) = args.first() else {
+        eprintln!("grade-snowflake needs a semantic view YAML file");
+        return ExitCode::from(2);
+    };
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("cannot read {path}: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    let mut def = match perishables_dbt::read_snowflake_definition(&text) {
+        Ok(def) => def,
+        Err(err) => {
+            eprintln!("cannot parse {path}: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    if let Some(idx) = args.iter().position(|a| a == "--changed-at") {
+        let Some(when) = args.get(idx + 1) else {
+            eprintln!("--changed-at needs a date");
+            return ExitCode::from(2);
+        };
+        match AuditClock::parse(when) {
+            Some(clock) => def.changed_at = Some(clock.epoch_seconds),
+            None => {
+                eprintln!("unparseable --changed-at {when}");
+                return ExitCode::from(2);
+            }
+        }
+    }
+    print_grade(&def, "GRADE-SNOWFLAKE")
 }
 
 /// One parsed fixture label.

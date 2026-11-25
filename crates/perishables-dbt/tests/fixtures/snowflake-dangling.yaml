@@ -1,0 +1,14 @@
+name: sales_view
+description: Sales semantic view with a relationship to a table it does not carry.
+tables:
+  - name: orders
+    table: SALES_DB.PUBLIC.ORDERS
+    description: One row per order.
+    facts:
+      - name: revenue
+        description: Gross revenue.
+        expr: AMOUNT
+relationships:
+  - name: orders_to_shipments
+    left_table: orders
+    right_table: shipments

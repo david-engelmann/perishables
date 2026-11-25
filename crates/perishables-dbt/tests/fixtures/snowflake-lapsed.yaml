@@ -1,0 +1,21 @@
+name: sales_view
+description: Sales semantic view whose verification predates its last change.
+tables:
+  - name: orders
+    table: SALES_DB.PUBLIC.ORDERS
+    description: One row per order.
+    facts:
+      - name: revenue
+        description: Gross revenue.
+        expr: AMOUNT
+verified_queries:
+  - name: total_revenue_check
+    question: What is total revenue?
+    sql: |
+      SELECT SUM(AMOUNT) FROM ORDERS
+    verified_by: a. analyst
+    verified_at: 1760000000
+  - name: unstamped_check
+    question: What is the order count?
+    sql: |
+      SELECT COUNT(*) FROM ORDERS

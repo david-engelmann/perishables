@@ -1,0 +1,36 @@
+name: sales_view
+description: Sales semantic view.
+tables:
+  - name: orders
+    table: SALES_DB.PUBLIC.ORDERS
+    description: One row per order.
+    synonyms:
+      - orders_data
+    facts:
+      - name: revenue
+        description: Gross revenue.
+        expr: AMOUNT
+        synonyms:
+          - sales
+    dimensions:
+      - name: region
+        description: Sales region.
+        expr: REGION
+  - name: customers
+    table: SALES_DB.PUBLIC.CUSTOMERS
+    description: One row per customer.
+    dimensions:
+      - name: customer_name
+        description: Customer name.
+        expr: NAME
+relationships:
+  - name: orders_to_customers
+    left_table: orders
+    right_table: customers
+verified_queries:
+  - name: total_revenue_check
+    question: What is total revenue?
+    sql: |
+      SELECT SUM(AMOUNT) FROM ORDERS
+    verified_by: a. analyst
+    verified_at: 1760000000

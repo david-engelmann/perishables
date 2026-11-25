@@ -26,17 +26,27 @@
 //! them beside display names. See ossie.rs for the mapping and
 //! its stated boundary, the JSON form only in this slice.
 //!
+//! Slice 3 adds the Snowflake reader and the currency family.
+//! A Snowflake verified query is a verification event, current
+//! when it stands at or after the definition's last change,
+//! and the model gains verification events, declared
+//! relationships, and a changed_at instant the caller supplies
+//! from outside the definition. See snowflake.rs and yaml.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
 
 mod json;
 mod ossie;
+mod snowflake;
+mod yaml;
 
 use std::collections::BTreeMap;
 
 pub use json::Json;
 pub use ossie::read_ossie_definition;
+pub use snowflake::read_snowflake_definition;
 
 /// One measure inside a semantic model.
 #[derive(Debug, Clone, PartialEq)]
@@ -80,6 +90,28 @@ pub struct Alias {
     pub owner: String,
 }
 
+/// One verification event recorded inside a definition. A
+/// Snowflake verified query carries who verified it and when,
+/// as a free text name and an epoch second, which is a weaker
+/// claim than an OKF actor scheme and grades accordingly. See
+/// the currency check.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Verification {
+    /// The verified item, a query name for Snowflake.
+    pub item: String,
+    pub by: Option<String>,
+    pub at: Option<i64>,
+}
+
+/// One declared relationship between two tables in a
+/// definition, the join structure the structural family walks.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Relationship {
+    pub name: String,
+    pub left_table: String,
+    pub right_table: String,
+}
+
 /// The normalized grading model for one manifest.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Definition {
@@ -92,6 +124,18 @@ pub struct Definition {
     /// native dbt has no synonym field. The Ossie reader fills
     /// it from ai_context.
     pub aliases: Vec<Alias>,
+    /// Verification events the definition records. Only the
+    /// Snowflake reader fills this in this programme so far.
+    pub verifications: Vec<Verification>,
+    /// Declared relationships between tables. Only the
+    /// Snowflake reader fills this in this slice.
+    pub relationships: Vec<Relationship>,
+    /// The instant the definition last changed, where the
+    /// caller knows it. No vendor stores this inside the
+    /// definition, so it arrives from outside, object metadata
+    /// for Snowflake, and the currency check grades against it
+    /// only when it is present.
+    pub changed_at: Option<i64>,
 }
 
 /// The closed set of cross ecosystem finding codes this adapter
@@ -100,6 +144,8 @@ pub struct Definition {
 pub enum Code {
     DanglingMetricReference,
     NameCollision,
+    LapsedVerifiedQuery,
+    DanglingRelationship,
 }
 
 impl Code {
@@ -107,6 +153,8 @@ impl Code {
         match self {
             Code::DanglingMetricReference => "DANGLING_METRIC_REFERENCE",
             Code::NameCollision => "NAME_COLLISION",
+            Code::LapsedVerifiedQuery => "LAPSED_VERIFIED_QUERY",
+            Code::DanglingRelationship => "DANGLING_RELATIONSHIP",
         }
     }
 }
@@ -319,6 +367,58 @@ pub fn check_collisions(def: &Definition) -> Vec<Finding> {
     findings
 }
 
+/// Verification currency, the OKF currency rule in vendor
+/// dress. A verification is current when it stands at or after
+/// the last change to the definition it verifies, and lapsed
+/// when it predates that change. The check grades only when
+/// both instants are known. A verification with no timestamp
+/// cannot be placed against the change and is a coverage note,
+/// never a lapse, and a definition whose change instant the
+/// caller did not supply grades nothing here.
+pub fn check_currency(def: &Definition) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    if let Some(changed_at) = def.changed_at {
+        for v in &def.verifications {
+            if let Some(at) = v.at
+                && at < changed_at
+            {
+                findings.push(Finding {
+                    code: Code::LapsedVerifiedQuery,
+                    item: v.item.clone(),
+                    detail: format!(
+                        "verified query {} was verified at {at}, before the definition last changed at {changed_at}",
+                        v.item
+                    ),
+                });
+            }
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
+/// Structural integrity for declared relationships. Each side
+/// of a relationship must name a table the definition carries.
+pub fn check_relationships(def: &Definition) -> Vec<Finding> {
+    let mut findings = Vec::new();
+    for r in &def.relationships {
+        for (side, table) in [("left", &r.left_table), ("right", &r.right_table)] {
+            if !def.model_names.contains(table) {
+                findings.push(Finding {
+                    code: Code::DanglingRelationship,
+                    item: r.name.clone(),
+                    detail: format!(
+                        "relationship {} names {side} table {table}, which the definition does not carry",
+                        r.name
+                    ),
+                });
+            }
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
 /// Coverage and orphan observations, as notes.
 pub fn notes(def: &Definition) -> Vec<Note> {
     let mut out = Vec::new();
@@ -346,16 +446,37 @@ pub fn notes(def: &Definition) -> Vec<Note> {
             });
         }
     }
-    let referenced: Vec<&str> = def
-        .metrics
-        .iter()
-        .flat_map(|m| m.measure_refs.iter().map(String::as_str))
-        .collect();
-    for m in &def.measures {
-        if !referenced.contains(&m.name.as_str()) {
+    // The orphan observation only makes sense where metrics
+    // reference measures by name, which is the dbt shape. In
+    // ecosystems whose metrics are expressions, a measure no
+    // metric names is normal, and the note stays silent.
+    let name_linked = def.metrics.iter().any(|m| !m.measure_refs.is_empty());
+    if name_linked {
+        let referenced: Vec<&str> = def
+            .metrics
+            .iter()
+            .flat_map(|m| m.measure_refs.iter().map(String::as_str))
+            .collect();
+        for m in &def.measures {
+            if !referenced.contains(&m.name.as_str()) {
+                out.push(Note {
+                    item: m.name.clone(),
+                    text: format!("measure {} is referenced by no metric", m.name),
+                });
+            }
+        }
+    }
+    for v in &def.verifications {
+        if v.by.is_none() {
             out.push(Note {
-                item: m.name.clone(),
-                text: format!("measure {} is referenced by no metric", m.name),
+                item: v.item.clone(),
+                text: format!("verified query {} records no verified_by", v.item),
+            });
+        }
+        if v.at.is_none() {
+            out.push(Note {
+                item: v.item.clone(),
+                text: format!("verified query {} records no verified_at", v.item),
             });
         }
     }
@@ -368,6 +489,8 @@ pub fn notes(def: &Definition) -> Vec<Note> {
 pub fn grade(def: &Definition) -> Vec<Finding> {
     let mut findings = check_dangling(def);
     findings.extend(check_collisions(def));
+    findings.extend(check_currency(def));
+    findings.extend(check_relationships(def));
     sort_findings(&mut findings);
     findings
 }
