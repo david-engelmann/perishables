@@ -23,6 +23,12 @@ assert!(grade(&definition).is_empty());
 assert!(notes(&definition).is_empty());
 ```
 
+## Documentation
+
+- [Cross-ecosystem semantic grading specification](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md)
+- [Native LookML reader specification](https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md)
+- [API reference on docs.rs](https://docs.rs/perishables-semantic)
+
 ## License
 
 Licensed under either of MIT or Apache License, Version 2.0 at your option.
