@@ -35,19 +35,28 @@ fn clean_project_grades_clean() {
 
 #[test]
 fn file_defects_grade_exactly() {
+    // The API slice's defect model re-expressed as files,
+    // grading to the same two findings the API form grades
+    // to, as the design record's gate states.
     let def = load("lookml-defects");
     let findings = grade(&def);
-    // Three findings, in sorted order. The dangling join and
-    // the synonym collision are the API slice's pair. The
-    // third is native to the files, the measure referencing
-    // gross_profit, which no field in the view defines.
-    assert_eq!(findings.len(), 3, "got {findings:?}");
+    assert_eq!(findings.len(), 2, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingRelationship);
+    assert_eq!(findings[0].item, "orders_to_shipments");
+    assert_eq!(findings[1].code, Code::NameCollision);
+    assert_eq!(findings[1].item, "revenue");
+}
+
+#[test]
+fn a_measure_on_an_undefined_field_is_exactly_one_finding() {
+    // The design record's first gate element, on its own
+    // fixture. The measure references gross_profit, which
+    // no field in the view defines.
+    let def = load("lookml-field");
+    let findings = grade(&def);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
     assert_eq!(findings[0].code, Code::DanglingMetricReference);
-    assert_eq!(findings[0].item, "total_revenue");
-    assert_eq!(findings[1].code, Code::DanglingRelationship);
-    assert_eq!(findings[1].item, "orders_to_shipments");
-    assert_eq!(findings[2].code, Code::NameCollision);
-    assert_eq!(findings[2].item, "revenue");
+    assert_eq!(findings[0].item, "margin");
 }
 
 #[test]

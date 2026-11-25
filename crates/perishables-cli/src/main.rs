@@ -5,11 +5,11 @@
 //!   perishables corpus [fixtures-dir]
 //!   perishables drift <bundle>
 //!   perishables grade-dbt <manifest.json>
-//!   perishables grade-ossie <ossie.json>
+//!   perishables grade-ossie <ossie.json or ossie.yaml>
 //!   perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]
 //!   perishables grade-databricks <space.json>
-//!   perishables grade-cube <meta.json>
-//!   perishables grade-looker <model.json>
+//!   perishables grade-cube <meta.json, model.yaml, or model.js>
+//!   perishables grade-looker <model.json, file.lookml, or project files...>
 //!   perishables grade-atscale <model.json>
 //!
 //! The audit command prints a tier line for every concept showing
@@ -29,7 +29,9 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use perishables_cli::execute::{ExecConfig, findings_from_reports, run_computations};
+use perishables_cli::execute::{
+    ComputationReport, ExecConfig, findings_from_reports, run_computations,
+};
 use perishables_core::{
     AuditClock, Bundle, Finding, check_currency, check_drift, check_freshness, check_provenance,
     check_supersession, info_notes, recompute_tier, sha256_hex, sort_findings,
@@ -53,11 +55,13 @@ fn main() -> ExitCode {
             eprintln!("       perishables corpus [fixtures-dir]");
             eprintln!("       perishables drift <bundle>");
             eprintln!("       perishables grade-dbt <manifest.json>");
-            eprintln!("       perishables grade-ossie <ossie.json>");
+            eprintln!("       perishables grade-ossie <ossie.json or ossie.yaml>");
             eprintln!("       perishables grade-snowflake <view.yaml> [--changed-at YYYY-MM-DD]");
             eprintln!("       perishables grade-databricks <space.json>");
-            eprintln!("       perishables grade-cube <meta.json>");
-            eprintln!("       perishables grade-looker <model.json>");
+            eprintln!("       perishables grade-cube <meta.json, model.yaml, or model.js>");
+            eprintln!(
+                "       perishables grade-looker <model.json, file.lookml, or project files...>"
+            );
             eprintln!("       perishables grade-atscale <model.json>");
             ExitCode::from(2)
         }
@@ -88,16 +92,17 @@ fn print_findings(findings: &[Finding]) {
 /// checks plus the re execution findings. Drift is part of this
 /// set since its promotion on 2026-11-23, which David ruled after
 /// the corpus separation evidence was in.
-fn default_findings(bundle: &Bundle, clock: &AuditClock) -> Vec<Finding> {
+fn default_findings(
+    bundle: &Bundle,
+    clock: &AuditClock,
+    reports: &[ComputationReport],
+) -> Vec<Finding> {
     let mut findings = check_currency(bundle, clock);
     findings.extend(check_supersession(bundle));
     findings.extend(check_freshness(bundle, clock));
     findings.extend(check_provenance(bundle));
     findings.extend(check_drift(bundle));
-    findings.extend(findings_from_reports(&run_computations(
-        bundle,
-        &ExecConfig::from_env(),
-    )));
+    findings.extend(findings_from_reports(reports));
     sort_findings(&mut findings);
     findings
 }
@@ -156,7 +161,12 @@ fn audit(args: &[String]) -> ExitCode {
             report.recomputed_tier.name()
         );
     }
-    for report in run_computations(&bundle, &ExecConfig::from_env()) {
+    // Computations execute exactly once per audit. The same
+    // reports print here and feed the findings below, so the
+    // printed verdicts and the gate verdicts can never come
+    // from two different executions.
+    let reports = run_computations(&bundle, &ExecConfig::from_env());
+    for report in &reports {
         let mut line = format!(
             "  COMPUTATION {} {}",
             report.concept_id,
@@ -179,7 +189,7 @@ fn audit(args: &[String]) -> ExitCode {
     for note in info_notes(&bundle, &clock) {
         println!("  NOTE {} {}", note.concept_id, note.text);
     }
-    let findings = default_findings(&bundle, &clock);
+    let findings = default_findings(&bundle, &clock, &reports);
     print_findings(&findings);
     println!(
         "RESULT {} findings={}",
@@ -228,7 +238,7 @@ fn grade_file(
     read: fn(&str) -> Result<perishables_dbt::Definition, String>,
 ) -> ExitCode {
     let Some(path) = args.first() else {
-        eprintln!("{tag} needs a definition JSON file");
+        eprintln!("{tag} needs a definition file");
         return ExitCode::from(2);
     };
     let text = match std::fs::read_to_string(path) {
@@ -344,7 +354,7 @@ fn grade_lookml_project(args: &[String]) -> ExitCode {
         match std::fs::read_to_string(path) {
             Ok(text) => files.push((path.clone(), text)),
             Err(e) => {
-                eprintln!("error: cannot read {path}: {e}");
+                eprintln!("cannot read {path}: {e}");
                 return ExitCode::from(2);
             }
         }
@@ -352,7 +362,7 @@ fn grade_lookml_project(args: &[String]) -> ExitCode {
     match perishables_dbt::read_lookml_project(&files) {
         Ok(def) => print_grade(&def, "GRADE-LOOKER"),
         Err(e) => {
-            eprintln!("error: cannot parse the project: {e}");
+            eprintln!("cannot parse the project: {e}");
             ExitCode::from(2)
         }
     }
@@ -534,7 +544,8 @@ fn corpus(args: &[String]) -> ExitCode {
                 return ExitCode::from(2);
             }
         };
-        let findings = default_findings(&bundle, &clock);
+        let reports = run_computations(&bundle, &ExecConfig::from_env());
+        let findings = default_findings(&bundle, &clock, &reports);
         let after = hash_tree(&fixture);
         let codes: BTreeSet<String> = findings
             .iter()

@@ -17,6 +17,12 @@ fn clean_view_grades_clean_when_verification_is_current() {
     assert_eq!(def.model_names.len(), 2);
     assert_eq!(def.verifications.len(), 1);
     assert_eq!(def.relationships.len(), 1);
+    // The verified query is also stored ground truth, with
+    // its SQL carried and its name standing as the question
+    // where the view carries no separate question text.
+    assert_eq!(def.ground_truth.len(), 1);
+    assert_eq!(def.ground_truth[0].item, "total_revenue_check");
+    assert!(def.ground_truth[0].expected_sql.contains("SUM"));
     // The view last changed before the verification, so the
     // verification is current and nothing grades.
     def.changed_at = Some(1_750_000_000);

@@ -19,7 +19,7 @@
 //! levels' attributes, so a level naming an attribute the
 //! dimension does not define grades as a dangling reference.
 
-use super::{Definition, Dimension, Json, Measure, Metric};
+use super::{Definition, Dimension, Json, Measure, Metric, opt_text_of, text_of};
 
 /// Parse an AtScale model export into the grading model.
 pub fn read_atscale_definition(text: &str) -> Result<Definition, String> {
@@ -86,16 +86,4 @@ pub fn read_atscale_definition(text: &str) -> Result<Definition, String> {
         }
     }
     Ok(def)
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }

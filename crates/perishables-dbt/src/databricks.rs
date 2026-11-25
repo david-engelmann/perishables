@@ -18,8 +18,14 @@
 //! slice, stated here rather than smoothed over. The learned
 //! layer, mined snippets and OntoRank scores, is not in the
 //! serialized form at all, and nothing here approximates it.
+//! Two further surfaces the design record names are outside
+//! this reader, stated as the boundary. Certification is a
+//! governed tag on Unity Catalog objects and arrives caller
+//! side, like a last change instant, not inside the space.
+//! Metric view synonyms live in a separate YAML surface with
+//! its own reader when that slice is built.
 
-use super::{Definition, Dimension, GroundTruth, Json};
+use super::{Definition, Dimension, GroundTruth, Json, opt_text_of, text_of};
 
 /// Parse serialized space JSON text into the grading model.
 pub fn read_databricks_definition(text: &str) -> Result<Definition, String> {
@@ -109,16 +115,4 @@ fn sql_answer(value: Option<&Json>) -> String {
         }
     }
     String::new()
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }

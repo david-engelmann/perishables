@@ -43,6 +43,10 @@ impl Json {
                 .iter()
                 .filter_map(|i| i.as_str().map(str::to_owned))
                 .collect(),
+            // A bare string is a one item list in the forms
+            // the readers consume, synonyms above all. Dropping
+            // it silently would lose a stated claim.
+            Json::Str(s) => vec![s.clone()],
             _ => Vec::new(),
         }
     }

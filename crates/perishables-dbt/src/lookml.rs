@@ -21,18 +21,29 @@
 
 use super::{Alias, Definition, Dimension, Metric, Relationship};
 
-/// One parsed block or property in a LookML file.
+/// One parsed block or property in a LookML file. The tree
+/// is the reader's public intermediate, as the design
+/// record states, so a later slice can grade surfaces the
+/// mapping does not consume, sets and parameters among
+/// them, without reparsing.
 #[derive(Debug, Clone, PartialEq)]
-enum Item {
+pub enum Item {
     Prop(String, Value),
     Block(String, Option<String>, Vec<Item>),
 }
 
+/// A property value in the tree.
 #[derive(Debug, Clone, PartialEq)]
-enum Value {
+pub enum Value {
     Single(String),
     List(Vec<String>),
     Sql(String),
+}
+
+/// Parse one LookML file into its block tree, the public
+/// intermediate the design record promises.
+pub fn parse_tree(text: &str) -> Result<Vec<Item>, String> {
+    parse_file(text)
 }
 
 /// Parse one LookML file's text into the grading model.
@@ -178,26 +189,30 @@ fn resolve_extends(views: &mut Vec<ViewData>, def: &mut Definition) {
                 let Some(parent_data) = views.iter().find(|v| v.name == parent) else {
                     continue;
                 };
-                let parent_dims = parent_data.dimensions.clone();
-                let parent_metrics = parent_data.metrics.clone();
-                let child = &mut views[i];
-                for dim in parent_dims {
-                    if !child.dimensions.iter().any(|d| d.name == dim.name) {
-                        // An inherited field keeps its home
-                        // view as its model. It is the parent's
-                        // field made addressable through the
-                        // child, which the qualified field set
-                        // records, not a second competing claim
-                        // by the child.
-                        child.dimensions.push(dim);
-                        changed = true;
-                    }
-                }
-                for metric in parent_metrics {
-                    if !child.metrics.iter().any(|m| m.name == metric.name) {
-                        child.metrics.push(metric);
-                        changed = true;
-                    }
+                // Collect only the fields the child lacks,
+                // under shared borrows, then extend once. The
+                // whole parent vectors are not cloned per pass.
+                let missing_dims: Vec<Dimension> = parent_data
+                    .dimensions
+                    .iter()
+                    .filter(|d| !views[i].dimensions.iter().any(|c| c.name == d.name))
+                    .cloned()
+                    .collect();
+                let missing_metrics: Vec<Metric> = parent_data
+                    .metrics
+                    .iter()
+                    .filter(|m| !views[i].metrics.iter().any(|c| c.name == m.name))
+                    .cloned()
+                    .collect();
+                if !missing_dims.is_empty() || !missing_metrics.is_empty() {
+                    // An inherited field keeps its home view as
+                    // its model. It is the parent's field made
+                    // addressable through the child, which the
+                    // qualified field set records, not a second
+                    // competing claim by the child.
+                    views[i].dimensions.extend(missing_dims);
+                    views[i].metrics.extend(missing_metrics);
+                    changed = true;
                 }
             }
         }
@@ -464,6 +479,58 @@ fn parse_items(scanner: &mut Scanner, top: bool) -> Result<Vec<Item>, String> {
             }
             None => return Err(format!("unexpected end of file after {key}:")),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sql_chunks_end_at_the_double_semicolon_only() {
+        // A single semicolon inside the chunk is content.
+        // The chunk ends at the terminator, and parsing
+        // continues after it.
+        let items =
+            parse_file("view: v { dimension: d { sql: SELECT 1; SELECT 2 ;; } }").expect("parses");
+        let Item::Block(_, _, children) = &items[0] else {
+            panic!("a view block");
+        };
+        let Item::Block(_, _, fields) = &children[0] else {
+            panic!("a dimension block");
+        };
+        assert_eq!(
+            prop(fields, "sql"),
+            Some(&Value::Sql("SELECT 1; SELECT 2".to_string()))
+        );
+    }
+
+    #[test]
+    fn comments_inside_sql_chunks_survive_and_outside_do_not() {
+        // Inside a SQL chunk the hash is SQL content. Outside,
+        // it is a LookML comment and is skipped, so the file
+        // below has exactly one property in the dimension.
+        let text = "view: v {\n  # a comment\n  dimension: d {\n    sql: ${TABLE}.x -- keep # this\n    ;;\n  }\n}";
+        let items = parse_file(text).expect("parses");
+        let Item::Block(_, _, children) = &items[0] else {
+            panic!("a view block");
+        };
+        let Item::Block(_, _, fields) = &children[0] else {
+            panic!("a dimension block");
+        };
+        assert_eq!(fields.len(), 1);
+        let Some(Value::Sql(sql)) = prop(fields, "sql") else {
+            panic!("sql prop");
+        };
+        assert!(sql.contains("# this"), "got {sql}");
+    }
+
+    #[test]
+    fn interpolation_is_captured_not_expanded() {
+        assert_eq!(
+            extract_refs("${amount} + ${customers.name} + ${TABLE}.id"),
+            vec!["amount".to_string(), "customers.name".to_string()]
+        );
     }
 }
 

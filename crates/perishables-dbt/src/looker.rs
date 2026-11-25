@@ -14,7 +14,9 @@
 //! relationships, graded for dangling targets by the
 //! structural family.
 
-use super::{Alias, Definition, Dimension, Json, Measure, Relationship};
+use super::{
+    Definition, Dimension, Json, Measure, Relationship, opt_text_of, push_synonym_aliases, text_of,
+};
 
 /// Parse an assembled Looker model document, views and
 /// explores, into the grading model.
@@ -79,26 +81,7 @@ fn collect_fields(view: &Json, view_name: &str, def: &mut Definition) {
 /// A field's synonyms list becomes alias claims under the
 /// field as owner.
 fn push_aliases(field: &Json, owner: &str, def: &mut Definition) {
-    for term in field
-        .get("synonyms")
-        .map(Json::as_str_list)
-        .unwrap_or_default()
-    {
-        def.aliases.push(Alias {
-            term,
-            owner: owner.to_string(),
-        });
+    if let Some(synonyms) = field.get("synonyms") {
+        push_synonym_aliases(synonyms, owner, &mut def.aliases);
     }
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }

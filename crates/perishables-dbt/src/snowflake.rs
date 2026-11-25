@@ -18,8 +18,17 @@
 //! The definition carries no last change instant, so
 //! changed_at stays unset here. The caller supplies it from
 //! object metadata, and the currency check grades only then.
+//!
+//! Two surfaces the design record names are not read here,
+//! stated as the boundary. Sample values and enum flags on
+//! dimensions, and custom instructions with their question
+//! categorization, are grounding and policy surfaces a later
+//! slice can grade. This reader does not consume them.
 
-use super::{Alias, Definition, Dimension, Json, Measure, Metric, Relationship, Verification};
+use super::{
+    Definition, Dimension, GroundTruth, Json, Measure, Metric, Relationship, Verification,
+    opt_text_of, push_synonym_aliases, text_of,
+};
 
 /// Parse semantic view YAML text into the grading model.
 pub fn read_snowflake_definition(text: &str) -> Result<Definition, String> {
@@ -83,10 +92,21 @@ pub fn read_snowflake_definition(text: &str) -> Result<Definition, String> {
     }
     if let Some(queries) = root.get("verified_queries").and_then(Json::as_list) {
         for query in queries {
+            let name = text_of(query, "name");
             def.verifications.push(Verification {
-                item: text_of(query, "name"),
+                item: name.clone(),
                 by: opt_text_of(query, "verified_by"),
                 at: epoch_of(query.get("verified_at")),
+            });
+            // A verified query is also a stored ground truth
+            // pair, one of the two platforms the design record
+            // names as storing ground truth in the definition.
+            // The question text falls back to the query name
+            // where the view carries no separate question.
+            def.ground_truth.push(GroundTruth {
+                item: name.clone(),
+                question: opt_text_of(query, "question").unwrap_or(name),
+                expected_sql: text_of(query, "sql"),
             });
         }
     }
@@ -95,12 +115,7 @@ pub fn read_snowflake_definition(text: &str) -> Result<Definition, String> {
 
 fn collect_synonyms(item: &Json, owner: &str, def: &mut Definition) {
     if let Some(synonyms) = item.get("synonyms") {
-        for term in synonyms.as_str_list() {
-            def.aliases.push(Alias {
-                term,
-                owner: owner.to_string(),
-            });
-        }
+        push_synonym_aliases(synonyms, owner, &mut def.aliases);
     }
 }
 
@@ -110,16 +125,4 @@ fn epoch_of(value: Option<&Json>) -> Option<i64> {
         Some(Json::Str(text)) => text.trim().parse().ok(),
         _ => None,
     }
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }

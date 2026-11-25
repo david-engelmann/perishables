@@ -15,7 +15,6 @@
 //! reader error, never a partial parse.
 
 use super::Json;
-use std::collections::BTreeMap;
 
 /// One top level call, a function name and its arguments.
 #[derive(Debug, Clone, PartialEq)]
@@ -62,7 +61,10 @@ fn parse_value(scanner: &mut Scanner) -> Result<Json, String> {
     match scanner.peek() {
         Some('{') => {
             scanner.take();
-            let mut map = BTreeMap::new();
+            // The crate's Json maps are entry vectors, the
+            // form the JSON and YAML readers build. A repeated
+            // key keeps the last value, as JavaScript does.
+            let mut map: Vec<(String, Json)> = Vec::new();
             loop {
                 scanner.skip_space_and_comments()?;
                 if scanner.peek() == Some('}') {
@@ -75,7 +77,8 @@ fn parse_value(scanner: &mut Scanner) -> Result<Json, String> {
                 };
                 scanner.expect(':')?;
                 let value = parse_value(scanner)?;
-                map.insert(key, value);
+                map.retain(|(k, _)| k != &key);
+                map.push((key, value));
                 scanner.skip_space_and_comments()?;
                 match scanner.take() {
                     Some(',') => continue,

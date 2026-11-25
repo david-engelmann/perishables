@@ -59,6 +59,19 @@ fn ossie_yaml_collision_matches_the_json_form() {
 }
 
 #[test]
+fn ossie_relationships_grade() {
+    // Root level relationships map into the model. The one
+    // naming a dataset the document does not carry dangles,
+    // the other is silent.
+    let def = load("ossie-relationships");
+    assert_eq!(def.relationships.len(), 2);
+    let findings = grade(&def);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingRelationship);
+    assert_eq!(findings[0].item, "orders_shipment");
+}
+
+#[test]
 fn a_synonym_claimed_by_two_fields_is_one_collision() {
     let def = load("ossie-collision");
     let findings = grade(&def);

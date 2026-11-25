@@ -20,7 +20,9 @@
 //! and the notes family flags any block at or past the limit,
 //! because its tail may already be gone without a trace.
 
-use super::{AiContext, Definition, Dimension, Json, Measure, Metric, Relationship};
+use super::{
+    AiContext, Definition, Dimension, Json, Measure, Metric, Relationship, opt_text_of, text_of,
+};
 
 /// Parse Cube meta JSON text into the grading model.
 pub fn read_cube_definition(text: &str) -> Result<Definition, String> {
@@ -56,7 +58,7 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
             continue;
         };
         def.model_names.push(name.clone());
-        let Some(Json::Map(object)) = call.args.get(1) else {
+        let Some(object @ Json::Map(_)) = call.args.get(1) else {
             continue;
         };
         if call.name == "view" {
@@ -88,7 +90,7 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
             }
         }
         if let Some(Json::Map(joins)) = object.get("joins") {
-            for target in joins.keys() {
+            for (target, _) in joins {
                 def.relationships.push(Relationship {
                     name: format!("{name}_to_{target}"),
                     left_table: name.clone(),
@@ -96,6 +98,12 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
                 });
             }
         }
+    }
+    if def.model_names.is_empty() && !text.trim().is_empty() {
+        // A JS file with no cube or view calls is not a Cube
+        // model file. Grading it clean would be a silent pass
+        // on the wrong file.
+        return Err("no cube or view calls found in the file".to_string());
     }
     Ok(def)
 }
@@ -108,11 +116,7 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
 /// dangling family grades a selected member the cube does
 /// not define. A star selection claims everything and
 /// references nothing.
-fn collect_view_selection(
-    object: &std::collections::BTreeMap<String, Json>,
-    view: &str,
-    def: &mut Definition,
-) {
+fn collect_view_selection(object: &Json, view: &str, def: &mut Definition) {
     let Some(Json::List(entries)) = object.get("cubes") else {
         return;
     };
@@ -228,16 +232,4 @@ fn collect_context(item: &Json, owner: &str, def: &mut Definition) {
 /// separately.
 fn short_name(name: &str) -> String {
     name.rsplit('.').next().unwrap_or(name).to_string()
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }

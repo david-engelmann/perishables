@@ -11,7 +11,7 @@ view: orders {
     type: sum
     label: "Revenue"
     description: "Gross revenue."
-    sql: ${gross_profit} ;;
+    sql: ${region} ;;
   }
 }
 

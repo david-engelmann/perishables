@@ -49,14 +49,14 @@ mod ossie;
 mod snowflake;
 mod yaml;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub use atscale::read_atscale_definition;
 pub use cube::{read_cube_definition, read_cube_js, read_cube_yaml};
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;
-pub use lookml::{read_lookml_definition, read_lookml_project};
+pub use lookml::{Item, Value, parse_tree, read_lookml_definition, read_lookml_project};
 pub use ossie::{read_ossie_definition, read_ossie_yaml};
 pub use snowflake::read_snowflake_definition;
 
@@ -158,15 +158,15 @@ pub struct Definition {
     pub dimensions: Vec<Dimension>,
     pub metrics: Vec<Metric>,
     /// Alias claims from ecosystems that record synonyms. The
-    /// dbt reader leaves this empty in this slice, because
-    /// native dbt has no synonym field. The Ossie reader fills
-    /// it from ai_context.
+    /// dbt reader leaves this empty, because native dbt has
+    /// no synonym field. The Ossie, Snowflake, and Looker
+    /// readers fill it from their synonym surfaces.
     pub aliases: Vec<Alias>,
     /// Verification events the definition records. Only the
-    /// Snowflake reader fills this in this programme so far.
+    /// Snowflake reader fills this.
     pub verifications: Vec<Verification>,
-    /// Declared relationships between tables. Only the
-    /// Snowflake reader fills this in this slice.
+    /// Declared relationships between tables. The Snowflake,
+    /// Cube, Looker, LookML, and Ossie readers fill this.
     pub relationships: Vec<Relationship>,
     /// The instant the definition last changed, where the
     /// caller knows it. No vendor stores this inside the
@@ -175,26 +175,27 @@ pub struct Definition {
     /// only when it is present.
     pub changed_at: Option<i64>,
     /// Stored ground truth pairs the definition carries.
-    /// Only the Databricks reader fills this in this slice.
+    /// The Databricks and Snowflake readers fill this, the
+    /// two platforms that store ground truth in the
+    /// definition.
     pub ground_truth: Vec<GroundTruth>,
     /// Questions the definition offers with no stored answer,
-    /// Genie sample questions in this slice. They are coverage
+    /// Genie sample questions. They are coverage
     /// observations, because the platform never claimed an
     /// answer for them.
     pub unverifiable_questions: Vec<String>,
     /// ai_context blocks recorded on items, by owner and
-    /// character count. Only the Cube reader fills this in
-    /// this slice.
+    /// character count. The Cube readers fill this.
     pub ai_contexts: Vec<AiContext>,
     /// Attribute names a reference may resolve against, in
     /// the qualified form the referencing reader uses.
     /// AtScale hierarchy levels reference dimension
     /// attributes, which are neither measures nor metrics.
     pub attributes: Vec<String>,
-    /// Qualified field names, view.field, for readers with
-    /// project scope. A dotted reference resolves only
-    /// against this set. Only the LookML project reader
-    /// fills it in this slice.
+    /// Qualified field names, view.field, for readers whose
+    /// references are qualified. A dotted reference resolves
+    /// only against this set. The LookML project reader and
+    /// the Cube JS reader fill it.
     pub qualified_fields: Vec<String>,
     /// Include patterns from a project file that matched no
     /// file in the provided set. Coverage observations, since
@@ -211,6 +212,7 @@ pub enum Code {
     LapsedVerifiedQuery,
     DanglingRelationship,
     BenchmarkWithoutAnswer,
+    AmbiguousJoinPath,
 }
 
 impl Code {
@@ -221,6 +223,7 @@ impl Code {
             Code::LapsedVerifiedQuery => "LAPSED_VERIFIED_QUERY",
             Code::DanglingRelationship => "DANGLING_RELATIONSHIP",
             Code::BenchmarkWithoutAnswer => "BENCHMARK_WITHOUT_ANSWER",
+            Code::AmbiguousJoinPath => "AMBIGUOUS_JOIN_PATH",
         }
     }
 }
@@ -247,6 +250,12 @@ pub struct Note {
 /// Parse manifest JSON text into the grading model. Accepts the
 /// semantic_manifest.json shape and the full manifest.json
 /// shape, which carry the same semantic_models and metrics keys.
+/// Two dbt surfaces the design record names are not read here,
+/// stated as the boundary. Meta dictionaries on models and
+/// metrics, and freshness, which arrives from git provenance
+/// and source freshness artifacts rather than from the manifest
+/// itself, are later surfaces. This reader consumes the
+/// manifest's own stated facts.
 pub fn read_definition(text: &str) -> Result<Definition, String> {
     let root = json::parse(text)?;
     let mut def = Definition::default();
@@ -295,7 +304,7 @@ pub fn read_definition(text: &str) -> Result<Definition, String> {
     Ok(def)
 }
 
-fn text_of(value: &Json, key: &str) -> String {
+pub(crate) fn text_of(value: &Json, key: &str) -> String {
     value
         .get(key)
         .and_then(Json::as_str)
@@ -303,8 +312,19 @@ fn text_of(value: &Json, key: &str) -> String {
         .to_string()
 }
 
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
+pub(crate) fn opt_text_of(value: &Json, key: &str) -> Option<String> {
     value.get(key).and_then(Json::as_str).map(str::to_owned)
+}
+
+/// Push one alias claim per synonym in a synonyms value,
+/// shared by the readers whose formats carry synonym lists.
+pub(crate) fn push_synonym_aliases(synonyms: &Json, owner: &str, aliases: &mut Vec<Alias>) {
+    for term in synonyms.as_str_list() {
+        aliases.push(Alias {
+            term,
+            owner: owner.to_string(),
+        });
+    }
 }
 
 /// A reference in type_params is a bare string in some shapes
@@ -363,8 +383,12 @@ fn collect_refs(params: &Json, metric: &mut Metric) {
 /// Structural integrity. Every measure or metric a metric
 /// points at must exist in the same definition.
 pub fn check_dangling(def: &Definition) -> Vec<Finding> {
-    let measure_names: Vec<&str> = def.measures.iter().map(|m| m.name.as_str()).collect();
-    let metric_names: Vec<&str> = def.metrics.iter().map(|m| m.name.as_str()).collect();
+    let measure_names: BTreeSet<&str> = def.measures.iter().map(|m| m.name.as_str()).collect();
+    let dimension_names: BTreeSet<&str> =
+        def.dimensions.iter().map(|d| d.name.as_str()).collect();
+    let metric_names: BTreeSet<&str> = def.metrics.iter().map(|m| m.name.as_str()).collect();
+    let qualified: BTreeSet<&str> = def.qualified_fields.iter().map(String::as_str).collect();
+    let attributes: BTreeSet<&str> = def.attributes.iter().map(String::as_str).collect();
     let mut findings = Vec::new();
     // A measure reference resolves against the model's
     // field set. Measures in the dbt sense, and dimensions
@@ -373,13 +397,12 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
     // A dotted reference is a cross view reference and
     // resolves only against the qualified field set a
     // project scoped reader supplies.
-    let dimension_names: Vec<&str> = def.dimensions.iter().map(|d| d.name.as_str()).collect();
     for metric in &def.metrics {
         for r in &metric.measure_refs {
             let resolves = if r.contains('.') {
-                def.qualified_fields.iter().any(|q| q == r)
+                qualified.contains(r.as_str())
             } else {
-                measure_names.contains(&r.as_str()) || dimension_names.contains(&r.as_str())
+                measure_names.contains(r.as_str()) || dimension_names.contains(r.as_str())
             };
             if !resolves {
                 findings.push(Finding {
@@ -393,7 +416,7 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
             }
         }
         for r in &metric.metric_refs {
-            if !metric_names.contains(&r.as_str()) && !def.attributes.iter().any(|a| a == r) {
+            if !metric_names.contains(r.as_str()) && !attributes.contains(r.as_str()) {
                 let kind = if r.contains('.') { "attribute" } else { "metric" };
                 findings.push(Finding {
                     code: Code::DanglingMetricReference,
@@ -497,6 +520,91 @@ pub fn check_relationships(def: &Definition) -> Vec<Finding> {
     }
     sort_findings(&mut findings);
     findings
+}
+
+/// Join path ambiguity, the fan trap. Where two routes
+/// connect the same pair of models at different lengths, a
+/// query can travel either and the routes aggregate at
+/// different grains, which is the wrong answer the vendor
+/// cookbooks name first. The check builds the model graph
+/// from declared relationships and, for every directly
+/// connected pair, looks for an alternative route of two or
+/// three edges that avoids the direct edge. One finding per
+/// ambiguous pair, naming both routes.
+pub fn check_join_paths(def: &Definition) -> Vec<Finding> {
+    let mut adjacency: BTreeMap<&str, Vec<&str>> = BTreeMap::new();
+    for r in &def.relationships {
+        adjacency
+            .entry(r.left_table.as_str())
+            .or_default()
+            .push(r.right_table.as_str());
+        adjacency
+            .entry(r.right_table.as_str())
+            .or_default()
+            .push(r.left_table.as_str());
+    }
+    for neighbors in adjacency.values_mut() {
+        neighbors.sort();
+        neighbors.dedup();
+    }
+    let mut findings = Vec::new();
+    let mut pairs: Vec<(&str, &str)> = Vec::new();
+    for r in &def.relationships {
+        let (a, b) = if r.left_table <= r.right_table {
+            (r.left_table.as_str(), r.right_table.as_str())
+        } else {
+            (r.right_table.as_str(), r.left_table.as_str())
+        };
+        if !pairs.contains(&(a, b)) {
+            pairs.push((a, b));
+        }
+    }
+    pairs.sort();
+    for (a, b) in pairs {
+        if let Some(route) = alternative_route(&adjacency, a, b) {
+            findings.push(Finding {
+                code: Code::AmbiguousJoinPath,
+                item: format!("{a}/{b}"),
+                detail: format!(
+                    "models {a} and {b} connect directly and again through {route}, routes that aggregate at different grains"
+                ),
+            });
+        }
+    }
+    sort_findings(&mut findings);
+    findings
+}
+
+/// One alternative route between two models, as the
+/// intermediate models joined by arrows, over paths of two
+/// or three edges that never use the direct edge.
+fn alternative_route(
+    adjacency: &BTreeMap<&str, Vec<&str>>,
+    a: &str,
+    b: &str,
+) -> Option<String> {
+    let empty: Vec<&str> = Vec::new();
+    for mid1 in adjacency.get(a).unwrap_or(&empty) {
+        if *mid1 == b || *mid1 == a {
+            continue;
+        }
+        if adjacency
+            .get(mid1)
+            .unwrap_or(&empty)
+            .contains(&b)
+        {
+            return Some(format!("{mid1}"));
+        }
+        for mid2 in adjacency.get(mid1).unwrap_or(&empty) {
+            if *mid2 == a || *mid2 == b || *mid2 == *mid1 {
+                continue;
+            }
+            if adjacency.get(mid2).unwrap_or(&empty).contains(&b) {
+                return Some(format!("{mid1} and {mid2}"));
+            }
+        }
+    }
+    None
 }
 
 /// Ground truth shape. A stored benchmark is a claim that
@@ -615,11 +723,15 @@ pub fn notes(def: &Definition) -> Vec<Note> {
 
 /// Every finding this adapter produces, sorted by code then
 /// item then detail, deterministic for a given definition.
+/// The individual check functions are public as the family
+/// level API, for callers who grade one family at a time.
+/// This function is their composition.
 pub fn grade(def: &Definition) -> Vec<Finding> {
     let mut findings = check_dangling(def);
     findings.extend(check_collisions(def));
     findings.extend(check_currency(def));
     findings.extend(check_relationships(def));
+    findings.extend(check_join_paths(def));
     findings.extend(check_ground_truth(def));
     sort_findings(&mut findings);
     findings

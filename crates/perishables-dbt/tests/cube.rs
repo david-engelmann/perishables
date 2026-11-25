@@ -116,6 +116,26 @@ fn js_outside_the_subset_is_a_reader_error() {
 }
 
 #[test]
+fn two_routes_between_the_same_cubes_are_ambiguous() {
+    // Orders reaches customers directly and again through
+    // shipments. The routes aggregate at different grains,
+    // which is the fan trap, and it grades whether or not
+    // any query has travelled the long route yet.
+    let def = load("cube-fan");
+    let findings = grade(&def);
+    // The three cubes form a triangle, so every pair in it
+    // has two routes and every pair grades. Three findings,
+    // one per pair, all the ambiguity code.
+    assert_eq!(findings.len(), 3, "got {findings:?}");
+    assert!(findings.iter().all(|f| f.code == Code::AmbiguousJoinPath));
+    assert!(
+        findings
+            .iter()
+            .any(|f| f.item == "customers/orders" && f.detail.contains("shipments"))
+    );
+}
+
+#[test]
 fn join_to_a_missing_cube_dangles() {
     let def = load("cube-dangling");
     let findings = grade(&def);

@@ -19,7 +19,7 @@
 //! over the YAML reader written for Snowflake, with the
 //! mapping shared so both forms grade identically.
 
-use super::{Alias, Definition, Dimension, Json, Metric};
+use super::{Alias, Definition, Dimension, Json, Metric, opt_text_of, text_of};
 
 /// Parse Ossie JSON text into the grading model.
 pub fn read_ossie_definition(text: &str) -> Result<Definition, String> {
@@ -79,7 +79,40 @@ fn definition_from(root: &Json) -> Definition {
             });
         }
     }
+    if let Some(rels) = root.get("relationships").and_then(Json::as_list) {
+        for rel in rels {
+            let (Some(left), Some(right)) = (
+                endpoint_of(rel, "from", "source"),
+                endpoint_of(rel, "to", "target"),
+            ) else {
+                continue;
+            };
+            let name = opt_text_of(rel, "name").unwrap_or_else(|| format!("{left}_to_{right}"));
+            def.relationships.push(super::Relationship {
+                name,
+                left_table: left,
+                right_table: right,
+            });
+        }
+    }
     def
+}
+
+/// One relationship endpoint. Ossie writes endpoints as a
+/// dataset name or as an object naming the dataset, and the
+/// keys vary by producer, from and source, to and target.
+/// Read them tolerantly and skip what names nothing.
+fn endpoint_of(rel: &Json, key_a: &str, key_b: &str) -> Option<String> {
+    let value = rel.get(key_a).or_else(|| rel.get(key_b))?;
+    match value {
+        Json::Str(s) => Some(s.clone()),
+        Json::Map(_) => value
+            .get("dataset")
+            .or_else(|| value.get("name"))
+            .and_then(Json::as_str)
+            .map(str::to_owned),
+        _ => None,
+    }
 }
 
 /// The synonyms inside one ai_context block become alias
@@ -99,16 +132,4 @@ fn collect_aliases(item: &Json, owner: &str, def: &mut Definition) {
             owner: owner.to_string(),
         });
     }
-}
-
-fn text_of(value: &Json, key: &str) -> String {
-    value
-        .get(key)
-        .and_then(Json::as_str)
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn opt_text_of(value: &Json, key: &str) -> Option<String> {
-    value.get(key).and_then(Json::as_str).map(str::to_owned)
 }
