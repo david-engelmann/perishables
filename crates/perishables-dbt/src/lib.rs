@@ -54,6 +54,9 @@
 //!
 //! Slice 9 closes the Cube boundary the same way.
 //!
+//! Slice 10 opens the native LookML reader, slice 1 of the
+//! project its design record scopes. See lookml.rs.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
@@ -63,6 +66,7 @@ mod cube;
 mod databricks;
 mod json;
 mod looker;
+mod lookml;
 mod ossie;
 mod snowflake;
 mod yaml;
@@ -74,6 +78,7 @@ pub use cube::{read_cube_definition, read_cube_yaml};
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;
+pub use lookml::read_lookml_definition;
 pub use ossie::{read_ossie_definition, read_ossie_yaml};
 pub use snowflake::read_snowflake_definition;
 
@@ -374,9 +379,14 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
     let measure_names: Vec<&str> = def.measures.iter().map(|m| m.name.as_str()).collect();
     let metric_names: Vec<&str> = def.metrics.iter().map(|m| m.name.as_str()).collect();
     let mut findings = Vec::new();
+    // A measure reference resolves against the model's
+    // field set. Measures in the dbt sense, and dimensions
+    // too, because a LookML measure's SQL references fields
+    // of either kind and the reference is a field reference.
+    let dimension_names: Vec<&str> = def.dimensions.iter().map(|d| d.name.as_str()).collect();
     for metric in &def.metrics {
         for r in &metric.measure_refs {
-            if !measure_names.contains(&r.as_str()) {
+            if !measure_names.contains(&r.as_str()) && !dimension_names.contains(&r.as_str()) {
                 findings.push(Finding {
                     code: Code::DanglingMetricReference,
                     item: metric.name.clone(),

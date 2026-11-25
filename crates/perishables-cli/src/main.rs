@@ -316,11 +316,22 @@ fn grade_cube(args: &[String]) -> ExitCode {
 }
 
 fn grade_looker(args: &[String]) -> ExitCode {
-    grade_file(
-        args,
-        "GRADE-LOOKER",
-        perishables_dbt::read_looker_definition,
-    )
+    // The API document and native LookML files are one
+    // surface, picked by extension.
+    let native = args.first().is_some_and(|p| p.ends_with(".lookml"));
+    if native {
+        grade_file(
+            args,
+            "GRADE-LOOKER",
+            perishables_dbt::read_lookml_definition,
+        )
+    } else {
+        grade_file(
+            args,
+            "GRADE-LOOKER",
+            perishables_dbt::read_looker_definition,
+        )
+    }
 }
 
 fn grade_atscale(args: &[String]) -> ExitCode {
