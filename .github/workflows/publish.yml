@@ -1,9 +1,24 @@
 name: Publish Crates
 
+# Automated crates.io deployment via GitHub Actions.
+# Supports crates.io OIDC Trusted Publishing (rust-lang/crates-io-auth-action)
+# with automatic fallback to secrets.CARGO_REGISTRY_TOKEN for initial crate
+# registration when brand-new crate names are published for the first time.
+
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Run mode (publish to crates.io or package-only dry run)"
+        required: true
+        type: choice
+        default: "publish"
+        options:
+          - publish
+          - package-only
 
 permissions:
   contents: read
@@ -12,16 +27,41 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  publish:
-    name: Publish workspace crates to crates.io
+  package:
+    name: Verify and package crates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@v7
       - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
           rustup default 1.100.0
-      - name: Verify gates before publish
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-publish-verify-1.100.0-${{ hashFiles('**/Cargo.lock') }}
+      - name: Verify tag matches workspace version
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, sys, tomllib
+          ws = tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["workspace"]["package"]["version"]
+          py = tomllib.loads(pathlib.Path("pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
+          if ws != py:
+              sys.exit(f"Cargo.toml version {ws!r} != pyproject.toml version {py!r}")
+          if os.environ.get("REF_TYPE") == "tag":
+              tag_ver = os.environ["REF_NAME"].removeprefix("v")
+              if tag_ver != ws:
+                  sys.exit(f"tag {os.environ['REF_NAME']!r} != workspace version {ws!r}")
+          print(f"verified version {ws}")
+          PY
+      - name: Verify gates and package manifests
         env:
           RUSTDOCFLAGS: "-D warnings"
         run: |
@@ -30,18 +70,102 @@ jobs:
           cargo test --workspace --all-features --locked
           cargo run --locked -- corpus
           cargo doc --workspace --no-deps --locked
-      - name: Dry-run package verification
-        run: |
           cargo package -p perishables-core --locked
           cargo package --list -p perishables-semantic --locked
           cargo package --list -p perishables --locked
-      - name: Publish in dependency order
-        if: github.event_name == 'release'
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      - name: Upload packaged root crate
+        uses: actions/upload-artifact@v7
+        with:
+          name: crate-perishables-core
+          path: target/package/perishables-core-*.crate
+          if-no-files-found: error
+
+  publish:
+    name: Publish to crates.io
+    needs: package
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.mode == 'publish')
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Rust 1.100.0
         run: |
-          cargo publish -p perishables-core --locked
-          sleep 20
-          cargo publish -p perishables-semantic --locked
-          sleep 20
-          cargo publish -p perishables --locked
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup default 1.100.0
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-publish-1.100.0-${{ hashFiles('**/Cargo.lock') }}
+      - name: Check secret token presence
+        id: check_secret
+        env:
+          SECRET_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          if [ -n "$SECRET_TOKEN" ]; then
+            echo "has_secret=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secret=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Authenticate with crates.io via OIDC Trusted Publishing
+        if: steps.check_secret.outputs.has_secret != 'true'
+        id: oidc_auth
+        uses: rust-lang/crates-io-auth-action@v1
+      - name: Publish workspace crates in topological order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.check_secret.outputs.has_secret == 'true' && secrets.CARGO_REGISTRY_TOKEN || steps.oidc_auth.outputs.token }}
+        run: |
+          python3 - <<'PY'
+          import json, pathlib, subprocess, sys, time, tomllib, urllib.error, urllib.request
+
+          version = tomllib.loads(pathlib.Path("Cargo.toml").read_text(encoding="utf-8"))["workspace"]["package"]["version"]
+          crates = ["perishables-core", "perishables-semantic", "perishables"]
+
+          def sparse_url(name: str) -> str:
+              low = name.lower()
+              if len(low) == 1:
+                  return f"https://index.crates.io/1/{low}"
+              if len(low) == 2:
+                  return f"https://index.crates.io/2/{low}"
+              if len(low) == 3:
+                  return f"https://index.crates.io/3/{low[0]}/{low}"
+              return f"https://index.crates.io/{low[:2]}/{low[2:4]}/{low}"
+
+          def is_published(name: str, ver: str) -> bool:
+              req = urllib.request.Request(
+                  sparse_url(name),
+                  headers={"User-Agent": "perishables-release-ci/1.0", "Cache-Control": "no-cache"},
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=15) as resp:
+                      for line in resp.read().decode("utf-8").splitlines():
+                          if line.strip() and json.loads(line).get("vers") == ver:
+                              return True
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404:
+                      return False
+                  raise
+              return False
+
+          for idx, crate in enumerate(crates):
+              if is_published(crate, version):
+                  print(f"{crate}@{version} is already published on crates.io; skipping")
+                  continue
+              print(f"publishing {crate}@{version} to crates.io...")
+              subprocess.run(["cargo", "publish", "-p", crate, "--locked"], check=True)
+              if idx + 1 < len(crates):
+                  deadline = time.monotonic() + 180.0
+                  while time.monotonic() < deadline:
+                      if is_published(crate, version):
+                          print(f"{crate}@{version} is visible in the crates.io sparse index")
+                          break
+                      time.sleep(5)
+                  else:
+                      sys.exit(f"timed out waiting for {crate}@{version} in crates.io sparse index")
+          PY

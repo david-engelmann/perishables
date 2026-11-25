@@ -8,7 +8,7 @@ All notable changes to `perishables` and its published planted-defect corpus are
 
 - Published the three-crate workspace comprising `perishables-core`, `perishables-semantic`, and `perishables` with zero external runtime dependencies.
 - Enforced `#![forbid(unsafe_code)]`, `missing_docs = "deny"`, and `clippy::all = "deny"` across all workspace crates on Rust `1.100`.
-- Added composite GitHub Action `action.yml`, `.pre-commit-hooks.yaml`, `cargo-binstall` metadata, and multi-OS release packaging for Linux, macOS, and Windows.
+- Added composite GitHub Action `action.yml`, `.pre-commit-hooks.yaml`, `cargo-binstall` metadata, a typed Python SDK and precompiled `perishables` PyPI wheels (`pyproject.toml`, `python/perishables`), and GitHub Actions OIDC release automation for crates.io, PyPI, and five-platform GitHub Releases.
 
 ### OKF trust auditing (`perishables-core`)
 
