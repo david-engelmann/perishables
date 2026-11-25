@@ -295,7 +295,11 @@ fn grade_cube(args: &[String]) -> ExitCode {
 }
 
 fn grade_looker(args: &[String]) -> ExitCode {
-    grade_file(args, "GRADE-LOOKER", perishables_dbt::read_looker_definition)
+    grade_file(
+        args,
+        "GRADE-LOOKER",
+        perishables_dbt::read_looker_definition,
+    )
 }
 
 /// Grade one Snowflake semantic view YAML. The currency

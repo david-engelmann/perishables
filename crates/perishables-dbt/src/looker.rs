@@ -30,8 +30,8 @@ pub fn read_looker_definition(text: &str) -> Result<Definition, String> {
     }
     if let Some(explores) = root.get("explores").and_then(Json::as_list) {
         for explore in explores {
-            let base = opt_text_of(explore, "view_name")
-                .unwrap_or_else(|| text_of(explore, "name"));
+            let base =
+                opt_text_of(explore, "view_name").unwrap_or_else(|| text_of(explore, "name"));
             if let Some(joins) = explore.get("joins").and_then(Json::as_list) {
                 for join in joins {
                     let target = text_of(join, "name");
@@ -79,7 +79,11 @@ fn collect_fields(view: &Json, view_name: &str, def: &mut Definition) {
 /// A field's synonyms list becomes alias claims under the
 /// field as owner.
 fn push_aliases(field: &Json, owner: &str, def: &mut Definition) {
-    for term in field.get("synonyms").map(Json::as_str_list).unwrap_or_default() {
+    for term in field
+        .get("synonyms")
+        .map(Json::as_str_list)
+        .unwrap_or_default()
+    {
         def.aliases.push(Alias {
             term,
             owner: owner.to_string(),
