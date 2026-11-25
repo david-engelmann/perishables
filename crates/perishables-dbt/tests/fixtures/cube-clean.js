@@ -38,3 +38,16 @@ cube(`customers`, {
     }
   }
 });
+
+view(`sales`, {
+  cubes: [
+    {
+      join_path: orders,
+      includes: [`revenue`, `region`]
+    },
+    {
+      join_path: `orders.customers`,
+      includes: `*`
+    }
+  ]
+});

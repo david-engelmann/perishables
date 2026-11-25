@@ -20,7 +20,7 @@
 //! and the notes family flags any block at or past the limit,
 //! because its tail may already be gone without a trace.
 
-use super::{AiContext, Definition, Dimension, Json, Measure, Relationship};
+use super::{AiContext, Definition, Dimension, Json, Measure, Metric, Relationship};
 
 /// Parse Cube meta JSON text into the grading model.
 pub fn read_cube_definition(text: &str) -> Result<Definition, String> {
@@ -42,9 +42,9 @@ pub fn read_cube_yaml(text: &str) -> Result<Definition, String> {
 /// grading model, over the JS subset reader. In the JS
 /// form, measures, dimensions, and joins are objects keyed
 /// by member name rather than lists. A view call contributes
-/// its name as a model in this slice. A view's member
-/// selection is a reference surface of its own and is
-/// stated here as the boundary, not silently dropped.
+/// its name as a model and its member selection as
+/// references, graded by the dangling family against the
+/// qualified field set this reader builds.
 pub fn read_cube_js(text: &str) -> Result<Definition, String> {
     let calls = super::js::parse_calls(text)?;
     let mut def = Definition::default();
@@ -56,14 +56,16 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
             continue;
         };
         def.model_names.push(name.clone());
-        if call.name == "view" {
-            continue;
-        }
         let Some(Json::Map(object)) = call.args.get(1) else {
             continue;
         };
+        if call.name == "view" {
+            collect_view_selection(object, name, &mut def);
+            continue;
+        }
         if let Some(Json::Map(measures)) = object.get("measures") {
             for (member, item) in measures {
+                def.qualified_fields.push(format!("{name}.{member}"));
                 collect_context(item, &format!("measure {name}.{member}"), &mut def);
                 def.measures.push(Measure {
                     name: member.clone(),
@@ -75,6 +77,7 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
         }
         if let Some(Json::Map(dims)) = object.get("dimensions") {
             for (member, item) in dims {
+                def.qualified_fields.push(format!("{name}.{member}"));
                 collect_context(item, &format!("dimension {name}.{member}"), &mut def);
                 def.dimensions.push(Dimension {
                     name: member.clone(),
@@ -95,6 +98,61 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
         }
     }
     Ok(def)
+}
+
+/// A view's member selection. Each cubes entry names a
+/// join path whose terminal cube supplies the members, and
+/// its includes and excludes name members of that cube,
+/// qualified or bare. The selection becomes one metric
+/// whose references are the qualified member names, so the
+/// dangling family grades a selected member the cube does
+/// not define. A star selection claims everything and
+/// references nothing.
+fn collect_view_selection(
+    object: &std::collections::BTreeMap<String, Json>,
+    view: &str,
+    def: &mut Definition,
+) {
+    let Some(Json::List(entries)) = object.get("cubes") else {
+        return;
+    };
+    let mut refs: Vec<String> = Vec::new();
+    for entry in entries {
+        let Some(path) = entry.get("join_path").and_then(Json::as_str) else {
+            continue;
+        };
+        let terminal = path.rsplit('.').next().unwrap_or(path);
+        for key in ["includes", "excludes"] {
+            match entry.get(key) {
+                Some(Json::List(members)) => {
+                    for member in members.iter().filter_map(Json::as_str) {
+                        if member.contains('.') {
+                            refs.push(member.to_string());
+                        } else {
+                            refs.push(format!("{terminal}.{member}"));
+                        }
+                    }
+                }
+                Some(Json::Str(star)) if star == "*" => {}
+                _ => {}
+            }
+        }
+    }
+    refs.sort();
+    refs.dedup();
+    if !refs.is_empty() {
+        def.metrics.push(Metric {
+            name: view.to_string(),
+            label: None,
+            // The selection is a reader construct, not a user
+            // definition, so it carries a plain description
+            // rather than tripping the coverage notes.
+            description: Some("View member selection.".to_string()),
+            kind: "view_selection".to_string(),
+            measure_refs: refs,
+            metric_refs: Vec::new(),
+        });
+    }
 }
 
 /// The mapping itself, over a parsed document of either

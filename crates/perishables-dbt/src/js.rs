@@ -9,9 +9,10 @@
 //! objects. Line and block comments. Template interpolation
 //! is carried as raw text inside the string, because the
 //! reference is a stated fact and expansion is Cube's job.
-//! Anything else, function values, spreads, computed keys,
-//! arbitrary expressions, is a reader error, never a
-//! partial parse.
+//! A bare or dotted identifier is a reference by name and
+//! parses as its name text. Anything else, function values,
+//! spreads, computed keys, arbitrary expressions, is a
+//! reader error, never a partial parse.
 
 use super::Json;
 use std::collections::BTreeMap;
@@ -104,14 +105,17 @@ fn parse_value(scanner: &mut Scanner) -> Result<Json, String> {
         Some('"') | Some('\'') | Some('`') => Ok(Json::Str(scanner.string()?)),
         Some(c) if c.is_ascii_digit() || c == '-' => Ok(Json::Number(scanner.number()?)),
         Some(_) => {
-            let word = scanner.ident()?;
+            let word = scanner.dotted_ident()?;
             match word.as_str() {
                 "true" => Ok(Json::Bool(true)),
                 "false" => Ok(Json::Bool(false)),
                 "null" => Ok(Json::Null),
-                _ => Err(format!(
-                    "unsupported value {word}, outside the stated subset"
-                )),
+                // A bare identifier, or a dotted chain of
+                // them, is a reference to a definition by
+                // name, join_path in Cube files. It parses as
+                // its name text, because the name is the
+                // gradeable fact.
+                _ => Ok(Json::Str(word)),
             }
         }
         None => Err("unexpected end of file".to_string()),
@@ -186,6 +190,18 @@ impl<'a> Scanner<'a> {
         } else {
             Err(format!("expected {want}"))
         }
+    }
+
+    /// An identifier or a dotted chain of identifiers, the
+    /// form a reference takes in Cube files.
+    fn dotted_ident(&mut self) -> Result<String, String> {
+        let mut out = self.ident()?;
+        while self.peek() == Some('.') {
+            self.take();
+            out.push('.');
+            out.push_str(&self.ident()?);
+        }
+        Ok(out)
     }
 
     fn ident(&mut self) -> Result<String, String> {

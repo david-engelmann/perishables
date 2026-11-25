@@ -60,7 +60,7 @@ fn js_model_files_grade() {
     );
     let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
     let def = read_cube_js(&text).unwrap_or_else(|e| panic!("parse js: {e}"));
-    assert_eq!(def.model_names.len(), 2);
+    assert_eq!(def.model_names.len(), 3);
     assert_eq!(def.relationships.len(), 1);
     assert_eq!(def.ai_contexts.len(), 1);
     assert!(grade(&def).is_empty(), "got {:?}", grade(&def));
@@ -76,6 +76,35 @@ fn js_model_files_grade() {
     assert_eq!(findings.len(), 1, "got {findings:?}");
     assert_eq!(findings[0].code, Code::DanglingRelationship);
     assert_eq!(findings[0].item, "orders_to_shipments");
+}
+
+#[test]
+fn js_view_selection_grades() {
+    // The clean fixture's view selects revenue and region
+    // from orders and everything from customers along the
+    // join path, all of which exist.
+    let path = format!(
+        "{}/tests/fixtures/cube-clean.js",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    let def = read_cube_js(&text).unwrap_or_else(|e| panic!("parse js: {e}"));
+    assert_eq!(def.model_names.len(), 3);
+    assert!(grade(&def).is_empty(), "got {:?}", grade(&def));
+
+    // The dangling fixture's view selects gross_profit,
+    // which the orders cube does not define.
+    let path = format!(
+        "{}/tests/fixtures/cube-view-dangling.js",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    let text = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {path}: {e}"));
+    let def = read_cube_js(&text).unwrap_or_else(|e| panic!("parse js: {e}"));
+    let findings = grade(&def);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingMetricReference);
+    assert_eq!(findings[0].item, "sales");
+    assert!(findings[0].detail.contains("orders.gross_profit"));
 }
 
 #[test]
