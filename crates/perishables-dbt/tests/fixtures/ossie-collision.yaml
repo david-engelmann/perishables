@@ -1,0 +1,21 @@
+name: sales
+version: 0.2.0
+datasets:
+  - name: orders
+    description: One row per order.
+    fields:
+      - name: amount
+        description: Gross amount of the order.
+        expression: amount
+        ai_context:
+          synonyms:
+            - revenue
+      - name: recognized
+        description: Amount recognized under the accounting policy.
+        expression: recognized_amount
+        ai_context:
+          synonyms:
+            - revenue
+metrics:
+  - name: total_revenue
+    description: Sum of order amounts.

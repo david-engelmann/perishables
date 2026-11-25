@@ -14,16 +14,31 @@
 //! collision family beside display names, which is how a
 //! synonym that names two different fields gets caught.
 //!
-//! This slice reads the JSON form of an Ossie document. JSON
-//! is valid YAML and the converter ecosystem emits it, so the
-//! boundary costs little, and it is stated here rather than
-//! smoothed over.
+//! The first Ossie slice read the JSON form only. The YAML
+//! form joins it in the slice that closes that boundary,
+//! over the YAML reader written for Snowflake, with the
+//! mapping shared so both forms grade identically.
 
 use super::{Alias, Definition, Dimension, Json, Metric};
 
 /// Parse Ossie JSON text into the grading model.
 pub fn read_ossie_definition(text: &str) -> Result<Definition, String> {
     let root = super::json::parse(text)?;
+    Ok(definition_from(&root))
+}
+
+/// Parse an Ossie document in YAML form into the grading
+/// model, over the YAML reader from the Snowflake slice. The
+/// mapping is the JSON reader's own, shared below, so the
+/// two forms of the same document grade identically.
+pub fn read_ossie_yaml(text: &str) -> Result<Definition, String> {
+    let root = super::yaml::parse(text)?;
+    Ok(definition_from(&root))
+}
+
+/// The mapping itself, over a parsed document of either
+/// form.
+fn definition_from(root: &Json) -> Definition {
     let mut def = Definition::default();
     let root_name = text_of(&root, "name");
     collect_aliases(&root, &format!("model {root_name}"), &mut def);
@@ -64,7 +79,7 @@ pub fn read_ossie_definition(text: &str) -> Result<Definition, String> {
             });
         }
     }
-    Ok(def)
+    def
 }
 
 /// The synonyms inside one ai_context block become alias

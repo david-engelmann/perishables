@@ -282,7 +282,16 @@ fn grade_dbt(args: &[String]) -> ExitCode {
 }
 
 fn grade_ossie(args: &[String]) -> ExitCode {
-    grade_file(args, "GRADE-OSSIE", perishables_dbt::read_ossie_definition)
+    // One command, two document forms. The extension picks
+    // the reader, and both forms grade identically.
+    let yaml = args
+        .first()
+        .is_some_and(|p| p.ends_with(".yaml") || p.ends_with(".yml"));
+    if yaml {
+        grade_file(args, "GRADE-OSSIE", perishables_dbt::read_ossie_yaml)
+    } else {
+        grade_file(args, "GRADE-OSSIE", perishables_dbt::read_ossie_definition)
+    }
 }
 
 fn grade_databricks(args: &[String]) -> ExitCode {

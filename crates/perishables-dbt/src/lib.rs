@@ -49,6 +49,9 @@
 //! attribute set that references may resolve against. See
 //! atscale.rs.
 //!
+//! Slice 8 closes the Ossie boundary. The YAML form reads
+//! through the same mapping as the JSON form.
+//!
 //! The four locked OKF calls in perishables-core are untouched
 //! by this crate. Cross ecosystem finding codes are a separate
 //! closed set, versioned with this crate.
@@ -69,7 +72,7 @@ pub use cube::read_cube_definition;
 pub use databricks::read_databricks_definition;
 pub use json::Json;
 pub use looker::read_looker_definition;
-pub use ossie::read_ossie_definition;
+pub use ossie::{read_ossie_definition, read_ossie_yaml};
 pub use snowflake::read_snowflake_definition;
 
 /// One measure inside a semantic model.
