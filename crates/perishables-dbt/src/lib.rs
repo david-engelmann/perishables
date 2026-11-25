@@ -384,8 +384,7 @@ fn collect_refs(params: &Json, metric: &mut Metric) {
 /// points at must exist in the same definition.
 pub fn check_dangling(def: &Definition) -> Vec<Finding> {
     let measure_names: BTreeSet<&str> = def.measures.iter().map(|m| m.name.as_str()).collect();
-    let dimension_names: BTreeSet<&str> =
-        def.dimensions.iter().map(|d| d.name.as_str()).collect();
+    let dimension_names: BTreeSet<&str> = def.dimensions.iter().map(|d| d.name.as_str()).collect();
     let metric_names: BTreeSet<&str> = def.metrics.iter().map(|m| m.name.as_str()).collect();
     let qualified: BTreeSet<&str> = def.qualified_fields.iter().map(String::as_str).collect();
     let attributes: BTreeSet<&str> = def.attributes.iter().map(String::as_str).collect();
@@ -417,7 +416,11 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
         }
         for r in &metric.metric_refs {
             if !metric_names.contains(r.as_str()) && !attributes.contains(r.as_str()) {
-                let kind = if r.contains('.') { "attribute" } else { "metric" };
+                let kind = if r.contains('.') {
+                    "attribute"
+                } else {
+                    "metric"
+                };
                 findings.push(Finding {
                     code: Code::DanglingMetricReference,
                     item: metric.name.clone(),
@@ -440,16 +443,28 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
 pub fn check_collisions(def: &Definition) -> Vec<Finding> {
     let mut claims: BTreeMap<String, Vec<String>> = BTreeMap::new();
     let mut claim = |display: &str, owner: String| {
-        claims.entry(display.to_lowercase()).or_default().push(owner);
+        claims
+            .entry(display.to_lowercase())
+            .or_default()
+            .push(owner);
     };
     for m in &def.metrics {
-        claim(m.label.as_deref().unwrap_or(&m.name), format!("metric {}", m.name));
+        claim(
+            m.label.as_deref().unwrap_or(&m.name),
+            format!("metric {}", m.name),
+        );
     }
     for m in &def.measures {
-        claim(m.label.as_deref().unwrap_or(&m.name), format!("measure {}", m.name));
+        claim(
+            m.label.as_deref().unwrap_or(&m.name),
+            format!("measure {}", m.name),
+        );
     }
     for d in &def.dimensions {
-        claim(d.label.as_deref().unwrap_or(&d.name), format!("dimension {}", d.name));
+        claim(
+            d.label.as_deref().unwrap_or(&d.name),
+            format!("dimension {}", d.name),
+        );
     }
     for a in &def.aliases {
         claim(&a.term, a.owner.clone());
@@ -578,21 +593,13 @@ pub fn check_join_paths(def: &Definition) -> Vec<Finding> {
 /// One alternative route between two models, as the
 /// intermediate models joined by arrows, over paths of two
 /// or three edges that never use the direct edge.
-fn alternative_route(
-    adjacency: &BTreeMap<&str, Vec<&str>>,
-    a: &str,
-    b: &str,
-) -> Option<String> {
+fn alternative_route(adjacency: &BTreeMap<&str, Vec<&str>>, a: &str, b: &str) -> Option<String> {
     let empty: Vec<&str> = Vec::new();
     for mid1 in adjacency.get(a).unwrap_or(&empty) {
         if *mid1 == b || *mid1 == a {
             continue;
         }
-        if adjacency
-            .get(mid1)
-            .unwrap_or(&empty)
-            .contains(&b)
-        {
+        if adjacency.get(mid1).unwrap_or(&empty).contains(&b) {
             return Some(format!("{mid1}"));
         }
         for mid2 in adjacency.get(mid1).unwrap_or(&empty) {
@@ -733,9 +740,7 @@ pub fn notes(def: &Definition) -> Vec<Note> {
     for pattern in &def.unmatched_includes {
         out.push(Note {
             item: pattern.clone(),
-            text: format!(
-                "include pattern {pattern} matched no file in the provided set"
-            ),
+            text: format!("include pattern {pattern} matched no file in the provided set"),
         });
     }
     for context in &def.ai_contexts {
