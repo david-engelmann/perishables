@@ -678,6 +678,38 @@ pub fn notes(def: &Definition) -> Vec<Note> {
             }
         }
     }
+    // Orphan models. A model that carries fields and is
+    // reached by no relationship is a dead end in the graph,
+    // the entity half of the design record's orphan class.
+    // The observation is gated twice. The definition must
+    // carry more than one model and at least one
+    // relationship, because reachability is a claim only a
+    // multi model document with declared joins makes at
+    // all. And the model must carry measures or dimensions,
+    // because an entry point with no fields of its own, a
+    // Cube view above all, is a door into the graph rather
+    // than a room nothing reaches.
+    if def.model_names.len() >= 2 && !def.relationships.is_empty() {
+        let reached: BTreeSet<&str> = def
+            .relationships
+            .iter()
+            .flat_map(|r| [r.left_table.as_str(), r.right_table.as_str()])
+            .collect();
+        let carrying: BTreeSet<&str> = def
+            .measures
+            .iter()
+            .map(|m| m.model.as_str())
+            .chain(def.dimensions.iter().map(|d| d.model.as_str()))
+            .collect();
+        for name in &def.model_names {
+            if carrying.contains(name.as_str()) && !reached.contains(name.as_str()) {
+                out.push(Note {
+                    item: name.clone(),
+                    text: format!("model {name} is reached by no relationship"),
+                });
+            }
+        }
+    }
     for v in &def.verifications {
         if v.by.is_none() {
             out.push(Note {

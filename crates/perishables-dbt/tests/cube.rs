@@ -136,6 +136,20 @@ fn two_routes_between_the_same_cubes_are_ambiguous() {
 }
 
 #[test]
+fn a_cube_nothing_joins_to_is_an_orphan_note() {
+    // The audit log cube carries a field and joins to
+    // nothing in a document that does declare joins. That
+    // is information, a note, and never a finding, because
+    // an unreached model may be deliberate.
+    let def = load("cube-orphan");
+    assert!(grade(&def).is_empty(), "got {:?}", grade(&def));
+    let found_notes = notes(&def);
+    assert_eq!(found_notes.len(), 1, "got {found_notes:?}");
+    assert_eq!(found_notes[0].item, "audit_log");
+    assert!(found_notes[0].text.contains("reached by no relationship"));
+}
+
+#[test]
 fn join_to_a_missing_cube_dangles() {
     let def = load("cube-dangling");
     let findings = grade(&def);
