@@ -22,6 +22,12 @@ assert!(currency_findings.is_empty());
 assert!(chain_findings.is_empty());
 ```
 
+## Documentation
+
+- [OKF trust model and design specification](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md)
+- [Architecture overview](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md)
+- [API reference on docs.rs](https://docs.rs/perishables-core)
+
 ## License
 
 Licensed under either of MIT or Apache License, Version 2.0 at your option.

@@ -25,6 +25,14 @@ perishables grade-atscale model.json
 
 Structured output is available on audit, drift, and semantic grading commands with `--format text`, `--format json`, `--format sarif`, or `--format github`, plus `--output <path>` to write reports outside the audited bundle.
 
+## Documentation
+
+- [Architecture overview](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md)
+- [OKF trust model](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md)
+- [Cross-ecosystem semantic grading](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md)
+- [Claims and corpus traceability](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md)
+- [API reference on docs.rs](https://docs.rs/perishables)
+
 ## License
 
 Licensed under either of MIT or Apache License, Version 2.0 at your option.

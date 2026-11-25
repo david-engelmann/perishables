@@ -32,3 +32,4 @@ All notable changes to `perishables` and its published planted-defect corpus are
 
 - Incremented `corpus_version` from `0.1.0` to `0.2.0` on adding `t5-unattested-claim`, completing planted-defect coverage across all twelve `FindingCode` variants alongside the four clean control bundles.
 - Hardened `perishables corpus` to cross-check `manifest.toml` against directories on disk and validate `LABEL.toml` tier and computation assertions.
+- Added `docs/README.md`, `docs/CLAIMS.md`, light and dark SVG lockups, architecture and shelf-life comparison diagrams, a `1200x630` social preview card, and a real-output `docs/media/money-shot.gif` demonstration.
