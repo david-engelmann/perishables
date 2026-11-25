@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/perishables-core", "crates/perishables-cli"]
+members = ["crates/perishables-core", "crates/perishables-cli", "crates/perishables-dbt"]
 
 [workspace.package]
 edition = "2024"
@@ -9,3 +9,4 @@ repository = "https://github.com/david-engelmann/perishables"
 
 [workspace.dependencies]
 perishables-core = { path = "crates/perishables-core" }
+perishables-dbt = { path = "crates/perishables-dbt" }

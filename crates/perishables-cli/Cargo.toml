@@ -12,3 +12,4 @@ path = "src/main.rs"
 
 [dependencies]
 perishables-core.workspace = true
+perishables-dbt.workspace = true

@@ -1,0 +1,9 @@
+[package]
+name = "perishables-dbt"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Cross ecosystem grading adapter for dbt semantic manifests. Reads a semantic manifest into the normalized grading model and runs the structural and discoverability rule families over it."
+
+[dependencies]

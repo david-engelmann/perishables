@@ -4,6 +4,7 @@
 //!   perishables audit <bundle> --as-of YYYY-MM-DD
 //!   perishables corpus [fixtures-dir]
 //!   perishables drift <bundle>
+//!   perishables grade-dbt <manifest.json>
 //!
 //! The audit command prints a tier line for every concept showing
 //! the raw and recomputed tiers, one line per computation verdict,
@@ -34,10 +35,12 @@ fn main() -> ExitCode {
         Some("audit") => audit(&args[1..]),
         Some("corpus") => corpus(&args[1..]),
         Some("drift") => drift(&args[1..]),
+        Some("grade-dbt") => grade_dbt(&args[1..]),
         _ => {
             eprintln!("usage: perishables audit <bundle> --as-of YYYY-MM-DD");
             eprintln!("       perishables corpus [fixtures-dir]");
             eprintln!("       perishables drift <bundle>");
+            eprintln!("       perishables grade-dbt <manifest.json>");
             ExitCode::from(2)
         }
     }
@@ -189,6 +192,55 @@ fn drift(args: &[String]) -> ExitCode {
     println!(
         "DRIFT {} findings={}",
         if findings.is_empty() { "NONE" } else { "FOUND" },
+        findings.len()
+    );
+    if findings.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::from(1)
+    }
+}
+
+/// Grade one dbt semantic manifest. The cross ecosystem
+/// adapter's findings print in their own line shape because
+/// their codes are a separate closed set from the OKF codes.
+fn grade_dbt(args: &[String]) -> ExitCode {
+    let Some(manifest_path) = args.first() else {
+        eprintln!("grade-dbt needs a manifest JSON file");
+        return ExitCode::from(2);
+    };
+    let text = match std::fs::read_to_string(manifest_path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("cannot read manifest {manifest_path}: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    let def = match perishables_dbt::read_definition(&text) {
+        Ok(def) => def,
+        Err(err) => {
+            eprintln!("cannot parse manifest {manifest_path}: {err}");
+            return ExitCode::from(2);
+        }
+    };
+    let findings = perishables_dbt::grade(&def);
+    for finding in &findings {
+        println!(
+            "FINDING {} {} {}",
+            finding.code.label(),
+            finding.item,
+            finding.detail
+        );
+    }
+    for note in perishables_dbt::notes(&def) {
+        println!("NOTE {} {}", note.item, note.text);
+    }
+    println!(
+        "GRADE-DBT models={} measures={} dimensions={} metrics={} findings={}",
+        def.model_names.len(),
+        def.measures.len(),
+        def.dimensions.len(),
+        def.metrics.len(),
         findings.len()
     );
     if findings.is_empty() {

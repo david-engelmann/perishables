@@ -7,8 +7,13 @@ name = "perishables-cli"
 version = "0.1.0"
 dependencies = [
  "perishables-core",
+ "perishables-dbt",
 ]
 
 [[package]]
 name = "perishables-core"
+version = "0.1.0"
+
+[[package]]
+name = "perishables-dbt"
 version = "0.1.0"
