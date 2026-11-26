@@ -98,6 +98,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
@@ -105,16 +106,35 @@ jobs:
       - name: Generate SHA256SUMS and create release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
+          python3 - <<'PY'
+          import os, pathlib
+          tag = os.environ["GITHUB_REF_NAME"]
+          lines = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8").splitlines()
+          start = None
+          end = len(lines)
+          for i, line in enumerate(lines):
+              if start is None:
+                  if line.startswith(f"## {tag}") or line.startswith(f"## [{tag.removeprefix('v')}]"):
+                      start = i + 1
+              elif line.startswith("## "):
+                  end = i
+                  break
+          notes = "\n".join(lines[start:end]).strip() if start is not None else f"Release {tag}"
+          pathlib.Path("artifacts/release-notes.md").write_text(notes + "\n", encoding="utf-8")
+          PY
           cd artifacts
-          sha256sum perishables-* | sort -k 2 > SHA256SUMS
+          sha256sum -- perishables-* | sort -k 2 > SHA256SUMS
           sha256sum --check SHA256SUMS
           cat SHA256SUMS
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             gh release upload "${GITHUB_REF_NAME}" perishables-* SHA256SUMS --clobber
+            gh release edit "${GITHUB_REF_NAME}" --title "perishables ${GITHUB_REF_NAME}" --notes-file release-notes.md --latest
           else
             gh release create "${GITHUB_REF_NAME}" perishables-* SHA256SUMS \
               --title "perishables ${GITHUB_REF_NAME}" \
-              --generate-notes
+              --notes-file release-notes.md \
+              --latest
           fi
