@@ -1,0 +1,208 @@
+name: Verify Published Artifacts
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "37 6 * * 1"
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  scratch-project:
+    name: Smoke-test crates.io libraries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Rust 1.100.0
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup default 1.100.0
+      - name: Build and run scratch consumer against published 0.1.1 crates
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}"
+          cargo new scratch-consumer
+          cd scratch-consumer
+          cargo add perishables-core@0.1.1 perishables-semantic@0.1.1
+          cat <<'RS' > src/main.rs
+          use perishables_core::AuditClock;
+          use perishables_semantic::{Code, grade, read_definition, read_ossie_definition};
+
+          fn main() {
+              let clock = AuditClock::parse("2026-11-20").expect("valid audit date");
+              assert_eq!(clock.to_rfc3339(), "2026-11-20T00:00:00Z");
+
+              let dbt_manifest = r#"{
+                "semantic_models": [{
+                  "name": "orders",
+                  "measures": [{"name": "revenue", "description": "Gross revenue."}],
+                  "dimensions": [{"name": "region", "description": "Order region."}]
+                }],
+                "metrics": [{
+                  "name": "total_revenue",
+                  "type": "simple",
+                  "description": "Total revenue.",
+                  "type_params": {"measure": "revenue"}
+                }]
+              }"#;
+              let dbt_def = read_definition(dbt_manifest).expect("valid dbt manifest");
+              assert!(grade(&dbt_def).is_empty());
+
+              let ossie_doc = r#"{
+                "datasets": [{
+                  "name": "orders",
+                  "fields": [
+                    {"name": "amount", "ai_context": {"synonyms": ["revenue"]}},
+                    {"name": "recognized", "ai_context": {"synonyms": ["revenue"]}}
+                  ]
+                }]
+              }"#;
+              let ossie_def = read_ossie_definition(ossie_doc).expect("valid ossie model");
+              let findings = grade(&ossie_def);
+              assert_eq!(findings.len(), 1);
+              assert_eq!(findings[0].code, Code::NameCollision);
+              println!("scratch-consumer verified perishables-core and perishables-semantic 0.1.1");
+          }
+          RS
+          cargo run
+
+  install-cli:
+    name: Smoke-test crates.io CLI binary
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Rust 1.100.0
+        run: |
+          rustup toolchain install 1.100.0 --profile minimal
+          rustup default 1.100.0
+      - name: Install perishables 0.1.1 and audit temporary OKF bundle
+        run: |
+          set -euo pipefail
+          INSTALL_ROOT="${RUNNER_TEMP}/perishables-install"
+          cargo install perishables --version 0.1.1 --root "${INSTALL_ROOT}"
+          BIN="${INSTALL_ROOT}/bin/perishables"
+          test "$("${BIN}" --version)" = "perishables 0.1.1"
+
+          BUNDLE_DIR="${RUNNER_TEMP}/smoke-okf-bundle"
+          mkdir -p "${BUNDLE_DIR}/metrics"
+          cat <<'MD' > "${BUNDLE_DIR}/index.md"
+          ---
+          okf_version: "0.3"
+          title: Smoke bundle
+          description: Minimal verified OKF bundle for published CLI smoke test.
+          license: MIT
+          ---
+
+          # Metrics
+
+          * [Revenue](metrics/revenue.md) - Verified revenue metric.
+          MD
+          cat <<'MD' > "${BUNDLE_DIR}/metrics/revenue.md"
+          ---
+          type: Metric
+          title: Revenue
+          description: Verified revenue metric.
+          status: stable
+          generated: { by: "process:etl", at: "2026-10-01T09:00:00Z" }
+          verified:
+            - by: "human:reviewer@example.com"
+              at: "2026-10-05T09:00:00Z"
+          stale_after: "2026-12-31T00:00:00Z"
+          ---
+
+          # Definition
+
+          Gross recognized revenue in USD.
+          MD
+          "${BIN}" audit "${BUNDLE_DIR}" --as-of 2026-11-20
+
+  install-pypi:
+    name: Smoke-test PyPI package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install perishables==0.1.1 from PyPI and exercise SDK
+        run: |
+          set -euo pipefail
+          cd "${RUNNER_TEMP}"
+          python -m venv venv
+          ./venv/bin/pip install --upgrade pip
+          ./venv/bin/pip install perishables==0.1.1
+          test "$(./venv/bin/perishables --version)" = "perishables 0.1.1"
+          ./venv/bin/python - <<'PY'
+          import pathlib
+          import tempfile
+          import perishables
+
+          assert perishables.__version__ == "0.1.1", perishables.__version__
+          assert perishables.version() == "0.1.1", perishables.version()
+
+          with tempfile.TemporaryDirectory() as tmp:
+              root = pathlib.Path(tmp)
+              lookml = root / "orders.view.lookml"
+              lookml.write_text(
+                  'view: orders {\n'
+                  '  sql_table_name: sales.orders ;;\n'
+                  '  dimension: amount {\n'
+                  '    type: number\n'
+                  '    label: "Amount"\n'
+                  '    description: "Order amount."\n'
+                  '    sql: ${TABLE}.amount ;;\n'
+                  '  }\n'
+                  '  measure: total_revenue {\n'
+                  '    type: sum\n'
+                  '    label: "Total Revenue"\n'
+                  '    description: "Gross revenue."\n'
+                  '    sql: ${amount} ;;\n'
+                  '  }\n'
+                  '}\n',
+                  encoding="utf-8",
+              )
+              grade_rep = perishables.grade_looker(lookml)
+              assert grade_rep.passed, grade_rep
+              assert grade_rep.ecosystem == "looker"
+
+              bundle = root / "bundle"
+              (bundle / "metrics").mkdir(parents=True)
+              (bundle / "index.md").write_text(
+                  '---\n'
+                  'okf_version: "0.3"\n'
+                  'title: Smoke bundle\n'
+                  'description: Smoke bundle.\n'
+                  '---\n\n'
+                  '* [Revenue](metrics/revenue.md)\n',
+                  encoding="utf-8",
+              )
+              (bundle / "metrics" / "revenue.md").write_text(
+                  '---\n'
+                  'type: Metric\n'
+                  'title: Revenue\n'
+                  'description: Revenue.\n'
+                  'status: stable\n'
+                  'generated: { by: "process:etl", at: "2026-10-01T09:00:00Z" }\n'
+                  'verified:\n'
+                  '  - by: "human:alice"\n'
+                  '    at: "2026-09-01T09:00:00Z"\n'
+                  '---\n\n'
+                  'Lapsed verification concept.\n',
+                  encoding="utf-8",
+              )
+              sarif_out = root / "audit.sarif"
+              sarif = perishables.audit_sarif(
+                  bundle,
+                  as_of="2026-11-20",
+                  no_exec=True,
+                  output=sarif_out,
+              )
+              assert sarif["version"] == "2.1.0"
+              results = sarif["runs"][0]["results"]
+              assert len(results) == 1, results
+              assert results[0]["ruleId"] == "LAPSED_VERIFICATION"
+              assert sarif_out.is_file()
+          print("PyPI perishables==0.1.1 verified.")
+          PY

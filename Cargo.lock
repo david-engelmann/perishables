@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "perishables"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perishables-core",
  "perishables-semantic",
@@ -12,11 +12,11 @@ dependencies = [
 
 [[package]]
 name = "perishables-core"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "perishables-semantic"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "perishables-core",
 ]

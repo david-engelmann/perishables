@@ -2,6 +2,19 @@
 
 All notable changes to `perishables` and its published planted-defect corpus are recorded in this file.
 
+## [0.1.1] - 2026-11-26
+
+### Python SDK (`python/perishables`)
+
+- Added typed ecosystem-specific grading wrappers `grade_dbt`, `grade_ossie`, `grade_snowflake`, `grade_databricks`, `grade_cube`, `grade_looker`, and `grade_atscale`.
+- Added SARIF 2.1.0 pipeline helpers `audit_sarif` and `grade_sarif` with optional `output` file writing, returning parsed SARIF 2.1.0 dictionaries across both clean (`0`) and finding-producing (`1`) exit codes while raising `PerishablesError` on usage or parse errors (`2`).
+
+### Packaging, documentation, and CI
+
+- Replaced relative media sources and repository links in root `README.md` with canonical GitHub URLs so images and documentation links render cleanly on PyPI and crates.io.
+- Updated composite GitHub Action `action.yml` default `version` input to `v0.1.1` and pinned `actions/checkout` to `v7.0.1` across workflow definitions.
+- Added `.github/workflows/verify-published.yml` to verify published `0.1.1` crates.io libraries, CLI binary, and PyPI wheel on clean runner environments.
+
 ## v0.1.0 (2026-11-25)
 
 ### Workspace and packaging
