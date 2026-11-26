@@ -1,8 +1,8 @@
 <p align="center">
   <a href="https://github.com/david-engelmann/perishables">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/media/perishables-lockup-dark.svg">
-      <img src="docs/media/perishables-lockup-light.svg" alt="perishables" height="56">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-dark.svg">
+      <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-light.svg" alt="perishables" height="56">
     </picture>
   </a>
 </p>
@@ -14,11 +14,11 @@
 </p>
 
 <p align="center">
-  <a href="docs/README.md"><b>Docs</b></a> ·
-  <a href="docs/ARCHITECTURE.md">Architecture</a> ·
-  <a href="docs/DESIGN.md">OKF Trust Model</a> ·
-  <a href="docs/CROSS-ECOSYSTEM.md">7 Semantic Layers</a> ·
-  <a href="docs/CLAIMS.md">Claims &amp; Corpus</a> ·
+  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/README.md"><b>Docs</b></a> ·
+  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md">Architecture</a> ·
+  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md">OKF Trust Model</a> ·
+  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md">7 Semantic Layers</a> ·
+  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md">Claims &amp; Corpus</a> ·
   <a href="https://github.com/david-engelmann/perishables/releases">Releases</a>
 </p>
 
@@ -27,12 +27,12 @@
   <a href="https://crates.io/crates/perishables"><img src="https://img.shields.io/crates/v/perishables?color=c2410c&label=crates.io" alt="crates.io version"></a>
   <a href="https://pypi.org/project/perishables/"><img src="https://img.shields.io/pypi/v/perishables?color=c2410c&label=pypi" alt="PyPI version"></a>
   <a href="https://docs.rs/perishables-core"><img src="https://img.shields.io/docsrs/perishables-core" alt="docs.rs"></a>
-  <a href="Cargo.lock"><img src="https://img.shields.io/badge/external%20deps-0-success" alt="0 external dependencies"></a>
-  <a href="LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="MIT or Apache-2.0 license"></a>
+  <a href="https://github.com/david-engelmann/perishables/blob/main/Cargo.lock"><img src="https://img.shields.io/badge/external%20deps-0-success" alt="0 external dependencies"></a>
+  <a href="https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="MIT or Apache-2.0 license"></a>
 </p>
 
 <p align="center">
-  <img src="docs/media/money-shot.gif"
+  <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/money-shot.gif"
        alt="A two-part view with live point-in-time evidence and corpus status above and real perishables CLI runs below, catching a lapsed verification, an Attested Computation mismatch, SHA-256 source drift, native LookML dangling references and name collisions, and passing all 19 reference corpus fixtures with zero mutations"
        width="900">
 </p>
@@ -53,8 +53,8 @@ Documentation bundles, AI context packs, and enterprise semantic layers rot quie
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/shelf-life-proof-dark.svg">
-    <img src="docs/media/shelf-life-proof-light.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/shelf-life-proof-dark.svg">
+    <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/shelf-life-proof-light.svg"
          alt="Side-by-side comparison showing syntax-only schema validation passing four decayed or broken claims while perishables at --as-of 2026-11-20 convicts LAPSED_VERIFICATION, SOURCE_DRIFT, ATTESTED_RESULT_MISMATCH, and DANGLING_METRIC_REFERENCE"
          width="860">
   </picture>
@@ -64,8 +64,8 @@ Documentation bundles, AI context packs, and enterprise semantic layers rot quie
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/media/how-it-works-dark.svg">
-    <img src="docs/media/how-it-works-light.svg"
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/how-it-works-dark.svg">
+    <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/how-it-works-light.svg"
          alt="OKF bundles and seven analytics semantic ecosystems flow into perishables-core and perishables-semantic under a pinned AuditClock with zero external dependencies, emitting deterministic terminal, SARIF 2.1.0, GitHub Actions, and JSON verdicts"
          width="860">
   </picture>
@@ -73,9 +73,9 @@ Documentation bundles, AI context packs, and enterprise semantic layers rot quie
 
 | Crate | Kind | External runtime deps | Role |
 | --- | --- | --- | --- |
-| [`perishables-core`](crates/perishables-core/README.md) | library | none (`std` only) | OKF bundle loader, YAML frontmatter and Markdown fence parser, proleptic Gregorian calendar math, FIPS 180-4 SHA-256, and the locked four-call trust surface. |
-| [`perishables-semantic`](crates/perishables-semantic/README.md) | library | none (`std` only) | Hand-written JSON, YAML, JS, and native LookML readers plus format-blind semantic grading rules across seven analytics ecosystems. |
-| [`perishables`](crates/perishables/README.md) | binary and library | none (`std` only) | CLI dispatcher (`audit`, `drift`, `corpus`, `grade`, `grade-*`), AST-screened Python sandbox executor, and `text`, `json`, `sarif`, and `github` formatters. |
+| [`perishables-core`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-core/README.md) | library | none (`std` only) | OKF bundle loader, YAML frontmatter and Markdown fence parser, proleptic Gregorian calendar math, FIPS 180-4 SHA-256, and the locked four-call trust surface. |
+| [`perishables-semantic`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-semantic/README.md) | library | none (`std` only) | Hand-written JSON, YAML, JS, and native LookML readers plus format-blind semantic grading rules across seven analytics ecosystems. |
+| [`perishables`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables/README.md) | binary and library | none (`std` only) | CLI dispatcher (`audit`, `drift`, `corpus`, `grade`, `grade-*`), AST-screened Python sandbox executor, and `text`, `json`, `sarif`, and `github` formatters. |
 
 ## Quickstart
 
@@ -96,6 +96,15 @@ import perishables
 
 report = perishables.audit("corpus/fixtures/clean-team-verified", as_of="2026-11-20")
 report.raise_for_findings()
+
+lookml = perishables.grade_looker(["orders.view.lookml", "sales.model.lookml"])
+lookml.raise_for_findings()
+
+sarif = perishables.audit_sarif(
+    "corpus/fixtures/t1-lapsed",
+    as_of="2026-11-20",
+    output="audit.sarif",
+)
 ```
 
 ### Audit an OKF knowledge bundle
@@ -158,8 +167,10 @@ assert!(check_provenance(&bundle).is_empty());
 assert!(check_drift(&bundle).is_empty());
 ```
 
+Configure the composite GitHub Action ([`action.yml`](https://github.com/david-engelmann/perishables/blob/main/action.yml)) in your workflow:
+
 ```yaml
-- uses: david-engelmann/perishables@v0.1.0
+- uses: david-engelmann/perishables@v0.1.1
   with:
     command: audit
     path: ./knowledge-bundle
@@ -184,17 +195,17 @@ cargo run -p perishables-core --example audit_bundle --locked
 
 | If you want to... | Read |
 | --- | --- |
-| Browse every specification and guide | [Documentation index](docs/README.md) |
-| Understand crate boundaries and determinism guarantees | [Architecture](docs/ARCHITECTURE.md) · [Decisions](DECISIONS.md) |
-| Read the OKF trust-tier, currency, and provenance specification | [OKF trust design](docs/DESIGN.md) · [Attested Computation](docs/ATTESTATION.md) |
-| See how all seven analytics ecosystems map into one grading model | [Cross-ecosystem grading](docs/CROSS-ECOSYSTEM.md) · [Native LookML reader](docs/LOOKML.md) |
-| Verify every claim against its corpus fixture or test | [Claims and corpus traceability](docs/CLAIMS.md) · [Reference corpus](corpus/README.md) |
-| Review Python sandbox hardening, `--no-exec`, and release notes | [Security policy](SECURITY.md) · [Changelog](CHANGELOG.md) |
+| Browse every specification and guide | [Documentation index](https://github.com/david-engelmann/perishables/blob/main/docs/README.md) |
+| Understand crate boundaries and determinism guarantees | [Architecture](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md) · [Decisions](https://github.com/david-engelmann/perishables/blob/main/DECISIONS.md) |
+| Read the OKF trust-tier, currency, and provenance specification | [OKF trust design](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md) · [Attested Computation](https://github.com/david-engelmann/perishables/blob/main/docs/ATTESTATION.md) |
+| See how all seven analytics ecosystems map into one grading model | [Cross-ecosystem grading](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md) · [Native LookML reader](https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md) |
+| Verify every claim against its corpus fixture or test | [Claims and corpus traceability](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md) · [Reference corpus](https://github.com/david-engelmann/perishables/blob/main/corpus/README.md) |
+| Review Python sandbox hardening, `--no-exec`, and release notes | [Security policy](https://github.com/david-engelmann/perishables/blob/main/SECURITY.md) · [Changelog](https://github.com/david-engelmann/perishables/blob/main/CHANGELOG.md) |
 
 ## Contributing
 
-[CONTRIBUTING.md](CONTRIBUTING.md) details the zero-dependency rule, planted-defect fixture requirements, and local verification gates.
+[CONTRIBUTING.md](https://github.com/david-engelmann/perishables/blob/main/CONTRIBUTING.md) details the zero-dependency rule, planted-defect fixture requirements, and local verification gates.
 
 ## License
 
-Licensed under either of [MIT](LICENSE-MIT) or [Apache License, Version 2.0](LICENSE-APACHE) at your option.
+Licensed under either of [MIT](https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT) or [Apache License, Version 2.0](https://github.com/david-engelmann/perishables/blob/main/LICENSE-APACHE) at your option.

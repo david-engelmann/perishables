@@ -31,7 +31,7 @@ jobs:
     name: Verify and package crates
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal --component rustfmt --component clippy
@@ -90,7 +90,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7.0.1
       - name: Install Rust 1.100.0
         run: |
           rustup toolchain install 1.100.0 --profile minimal

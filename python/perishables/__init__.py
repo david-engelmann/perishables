@@ -26,14 +26,23 @@ __all__ = [
     "SemanticCounts",
     "TierRecord",
     "audit",
+    "audit_sarif",
     "corpus",
     "drift",
     "find_binary",
     "grade",
+    "grade_atscale",
+    "grade_cube",
+    "grade_databricks",
+    "grade_dbt",
+    "grade_looker",
+    "grade_ossie",
+    "grade_sarif",
+    "grade_snowflake",
     "version",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 PathInput = str | os.PathLike[str]
 
@@ -270,6 +279,16 @@ def find_binary(binary: PathInput | None = None) -> Path:
     )
 
 
+def _normalize_paths(paths: PathInput | Sequence[PathInput], caller: str) -> list[str]:
+    if isinstance(paths, (str, os.PathLike)):
+        file_args = [os.fspath(paths)]
+    else:
+        file_args = [os.fspath(p) for p in paths]
+    if not file_args:
+        raise PerishablesError(f"{caller} requires at least one path", exit_code=2)
+    return file_args
+
+
 def _invoke_json(
     args: Sequence[str],
     *,
@@ -294,6 +313,48 @@ def _invoke_json(
             exit_code=completed.returncode,
         ) from exc
     return payload, completed.returncode
+
+
+def _invoke_sarif(
+    args: Sequence[str],
+    *,
+    output: PathInput | None = None,
+    binary: PathInput | None = None,
+) -> dict[str, Any]:
+    exe = find_binary(binary)
+    cmd = list(args)
+    out_path: Path | None = None
+    if output is not None:
+        out_path = Path(os.fspath(output))
+        cmd.extend(["--output", os.fspath(out_path)])
+    completed = subprocess.run(
+        [str(exe), *cmd],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if completed.returncode not in (0, 1):
+        detail = completed.stderr.strip() or completed.stdout.strip() or "command failed"
+        raise PerishablesError(detail, exit_code=completed.returncode)
+    try:
+        raw = (
+            out_path.read_text(encoding="utf-8")
+            if out_path is not None
+            else completed.stdout
+        )
+        payload = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise PerishablesError(
+            f"failed to decode SARIF output from perishables: {exc}",
+            exit_code=completed.returncode,
+        ) from exc
+    if not isinstance(payload, dict):
+        raise PerishablesError(
+            "expected SARIF JSON object from perishables",
+            exit_code=completed.returncode,
+        )
+    return payload
 
 
 def version(*, binary: PathInput | None = None) -> str:
@@ -378,6 +439,21 @@ def audit(
     )
 
 
+def audit_sarif(
+    bundle: PathInput,
+    *,
+    as_of: str,
+    no_exec: bool = False,
+    output: PathInput | None = None,
+    binary: PathInput | None = None,
+) -> dict[str, Any]:
+    """Audit an OKF bundle and return the parsed SARIF 2.1.0 report dictionary."""
+    cmd = ["audit", os.fspath(bundle), "--as-of", as_of, "--format", "sarif"]
+    if no_exec:
+        cmd.append("--no-exec")
+    return _invoke_sarif(cmd, output=output, binary=binary)
+
+
 def drift(
     bundle_path: PathInput,
     *,
@@ -456,13 +532,7 @@ def grade(
     binary: PathInput | None = None,
 ) -> GradeReport:
     """Grade one or more semantic-layer definitions across supported ecosystems."""
-    if isinstance(paths, (str, os.PathLike)):
-        file_args = [os.fspath(paths)]
-    else:
-        file_args = [os.fspath(p) for p in paths]
-    if not file_args:
-        raise PerishablesError("grade requires at least one path", exit_code=2)
-
+    file_args = _normalize_paths(paths, "grade")
     cmd = ["grade", *file_args, "--format", "json"]
     if ecosystem is not None:
         cmd.extend(["--ecosystem", ecosystem])
@@ -470,6 +540,120 @@ def grade(
         cmd.extend(["--changed-at", changed_at])
     data, code = _invoke_json(cmd, binary=binary)
     return _parse_grade_payload(data, code)
+
+
+def grade_dbt(
+    manifest: PathInput,
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade a dbt semantic manifest (``manifest.json`` or ``semantic_manifest.json``)."""
+    data, code = _invoke_json(
+        ["grade-dbt", os.fspath(manifest), "--format", "json"],
+        binary=binary,
+    )
+    return _parse_grade_payload(data, code)
+
+
+def grade_ossie(
+    model: PathInput,
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade an Apache Ossie model (``.json`` or ``.yaml``)."""
+    data, code = _invoke_json(
+        ["grade-ossie", os.fspath(model), "--format", "json"],
+        binary=binary,
+    )
+    return _parse_grade_payload(data, code)
+
+
+def grade_snowflake(
+    view: PathInput,
+    *,
+    changed_at: str | None = None,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade a Snowflake semantic view YAML definition."""
+    cmd = ["grade-snowflake", os.fspath(view), "--format", "json"]
+    if changed_at is not None:
+        cmd.extend(["--changed-at", changed_at])
+    data, code = _invoke_json(cmd, binary=binary)
+    return _parse_grade_payload(data, code)
+
+
+def grade_databricks(
+    space: PathInput,
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade a Databricks Genie serialized space JSON definition."""
+    data, code = _invoke_json(
+        ["grade-databricks", os.fspath(space), "--format", "json"],
+        binary=binary,
+    )
+    return _parse_grade_payload(data, code)
+
+
+def grade_cube(
+    paths: PathInput | Sequence[PathInput],
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade one or more Cube meta JSON, YAML, or JS model files."""
+    file_args = _normalize_paths(paths, "grade_cube")
+    if len(file_args) == 1:
+        cmd = ["grade-cube", file_args[0], "--format", "json"]
+    else:
+        cmd = ["grade", *file_args, "--ecosystem", "cube", "--format", "json"]
+    data, code = _invoke_json(cmd, binary=binary)
+    return _parse_grade_payload(data, code)
+
+
+def grade_looker(
+    paths: PathInput | Sequence[PathInput],
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade a Looker API model JSON or one or more native LookML files."""
+    file_args = _normalize_paths(paths, "grade_looker")
+    if len(file_args) == 1 or all(p.endswith(".lookml") for p in file_args):
+        cmd = ["grade-looker", *file_args, "--format", "json"]
+    else:
+        cmd = ["grade", *file_args, "--ecosystem", "looker", "--format", "json"]
+    data, code = _invoke_json(cmd, binary=binary)
+    return _parse_grade_payload(data, code)
+
+
+def grade_atscale(
+    model: PathInput,
+    *,
+    binary: PathInput | None = None,
+) -> GradeReport:
+    """Grade an AtScale semantic model export JSON definition."""
+    data, code = _invoke_json(
+        ["grade-atscale", os.fspath(model), "--format", "json"],
+        binary=binary,
+    )
+    return _parse_grade_payload(data, code)
+
+
+def grade_sarif(
+    paths: PathInput | Sequence[PathInput],
+    *,
+    ecosystem: str | None = None,
+    changed_at: str | None = None,
+    output: PathInput | None = None,
+    binary: PathInput | None = None,
+) -> dict[str, Any]:
+    """Grade semantic definitions and return the parsed SARIF 2.1.0 report dictionary."""
+    file_args = _normalize_paths(paths, "grade_sarif")
+    cmd = ["grade", *file_args, "--format", "sarif"]
+    if ecosystem is not None:
+        cmd.extend(["--ecosystem", ecosystem])
+    if changed_at is not None:
+        cmd.extend(["--changed-at", changed_at])
+    return _invoke_sarif(cmd, output=output, binary=binary)
 
 
 def corpus(
