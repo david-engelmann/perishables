@@ -14,7 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/README.md"><b>Docs</b></a> ·
+  <a href="https://david-engelmann.github.io/perishables/"><b>Docs</b></a> ·
+  <a href="https://github.com/david-engelmann/perishables/tree/main/examples">Examples</a> ·
   <a href="https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md">Architecture</a> ·
   <a href="https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md">OKF Trust Model</a> ·
   <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md">7 Semantic Layers</a> ·
@@ -180,7 +181,7 @@ assert!(check_drift(&bundle).is_empty());
 Configure the composite GitHub Action ([`action.yml`](https://github.com/david-engelmann/perishables/blob/main/action.yml)) in your workflow:
 
 ```yaml
-- uses: david-engelmann/perishables@v0.1.2
+- uses: david-engelmann/perishables@v0.1.3
   with:
     command: audit
     path: ./knowledge-bundle
@@ -205,10 +206,12 @@ cargo run -p perishables-core --example audit_bundle --locked
 
 | If you want to... | Read |
 | --- | --- |
-| Browse every specification and guide | [Documentation index](https://github.com/david-engelmann/perishables/blob/main/docs/README.md) |
+| Read the published documentation site and quickstart | [Published docs](https://david-engelmann.github.io/perishables/) · [Documentation index](https://github.com/david-engelmann/perishables/blob/main/docs/README.md) |
+| Run end-to-end Python SDK and CLI CI gate scripts | [Runnable examples](https://github.com/david-engelmann/perishables/tree/main/examples) · [Agent integration guide](https://github.com/david-engelmann/perishables/blob/main/AGENTS.md) |
 | Understand crate boundaries and determinism guarantees | [Architecture](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md) · [Decisions](https://github.com/david-engelmann/perishables/blob/main/DECISIONS.md) |
 | Read the OKF trust-tier, currency, and provenance specification | [OKF trust design](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md) · [Attested Computation](https://github.com/david-engelmann/perishables/blob/main/docs/ATTESTATION.md) |
 | See how all seven analytics ecosystems map into one grading model | [Cross-ecosystem grading](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md) · [Native LookML reader](https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md) |
+| Compare `perishables` against schema linters, `dbt parse`, `spectacles`, and monitors | [Tool comparison](https://github.com/david-engelmann/perishables/blob/main/docs/COMPARISON.md) · [FAQ](https://github.com/david-engelmann/perishables/blob/main/docs/FAQ.md) |
 | Verify every claim against its corpus fixture or test | [Claims and corpus traceability](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md) · [Reference corpus](https://github.com/david-engelmann/perishables/blob/main/corpus/README.md) |
 | Review Python sandbox hardening, `--no-exec`, and release notes | [Security policy](https://github.com/david-engelmann/perishables/blob/main/SECURITY.md) · [Changelog](https://github.com/david-engelmann/perishables/blob/main/CHANGELOG.md) |
 

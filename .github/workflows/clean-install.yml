@@ -1,0 +1,40 @@
+name: Clean-Machine Install
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: "41 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release tag to install (leave empty to resolve latest release)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clean-install-${{ github.event.release.tag_name || inputs.version || 'latest' }}
+  cancel-in-progress: false
+
+jobs:
+  install:
+    name: Clean install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    env:
+      PERISHABLES_VERSION: ${{ github.event.release.tag_name || inputs.version }}
+    steps:
+      - name: Install prebuilt release via install.sh (no checkout, no Rust toolchain)
+        shell: sh
+        run: |
+          set -eu
+          curl -fsSL https://raw.githubusercontent.com/david-engelmann/perishables/main/install.sh | sh
+          ~/.local/bin/perishables --version
+          ~/.local/bin/perishables --help >/dev/null

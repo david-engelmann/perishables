@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
+  <title>perishables</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#151411"/>
+  <path d="M16 12 H48 L35.5 31.5 L48 52 H16 L28.5 31.5 Z" fill="none" stroke="#f6f1e8" stroke-width="4" stroke-linejoin="round"/>
+  <rect x="10" y="30" width="44" height="3.8" rx="1.9" fill="#c2410c"/>
+  <polygon points="23,46.5 41,46.5 32,35.5" fill="#fb923c"/>
+  <rect x="14" y="10" width="36" height="4.4" rx="2.2" fill="#c2410c"/>
+  <rect x="14" y="49.6" width="36" height="4.4" rx="2.2" fill="#c2410c"/>
+</svg>

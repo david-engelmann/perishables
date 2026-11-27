@@ -10,6 +10,7 @@
 Thumbs.db
 __pycache__/
 *.py[cod]
+.ruff_cache/
 .idea/
 .vscode/
 *.sarif

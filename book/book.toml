@@ -1,0 +1,26 @@
+[book]
+title = "perishables"
+authors = ["david-engelmann"]
+description = "Point-in-time trust auditor for Open Knowledge Format bundles and seven analytics semantic layers, in zero-dependency Rust."
+language = "en"
+src = "src"
+
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
+[build]
+build-dir = "build"
+
+[output.html]
+default-theme = "ayu"
+git-repository-url = "https://github.com/david-engelmann/perishables"
+site-url = "/perishables/"
+additional-css = ["theme/brand.css"]
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
+
+# Dead-link gate: fail `mdbook build` on broken internal links without
+# fetching external URLs in CI. Adding this second renderer nests HTML
+# output under `build/html/`, which `.github/workflows/docs.yml` deploys.
+[output.linkcheck]
+follow-web-links = false
+warning-policy = "error"

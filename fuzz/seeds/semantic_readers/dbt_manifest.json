@@ -1,0 +1,18 @@
+{
+  "semantic_models": [
+    {
+      "name": "orders",
+      "measures": [{"name": "revenue", "label": "Revenue", "description": "Gross revenue."}],
+      "dimensions": [{"name": "region", "label": "Region", "description": "Sales region."}]
+    }
+  ],
+  "metrics": [
+    {
+      "name": "total_revenue",
+      "type": "simple",
+      "label": "Total Revenue",
+      "description": "Sum of gross revenue.",
+      "type_params": {"measure": "revenue"}
+    }
+  ]
+}

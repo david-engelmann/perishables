@@ -39,9 +39,9 @@ inputs:
     required: false
     default: "false"
   version:
-    description: "Release tag of perishables to install (for example v0.1.2), or build-from-source when empty"
+    description: "Release tag of perishables to install (for example v0.1.3), or build-from-source when empty"
     required: false
-    default: "v0.1.2"
+    default: "v0.1.3"
 
 runs:
   using: "composite"
