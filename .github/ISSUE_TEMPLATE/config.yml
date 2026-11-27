@@ -1,8 +1,14 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Documentation
+  - name: Published Docs
+    url: https://david-engelmann.github.io/perishables/
+    about: Read the published guides, semantic-layer specifications, FAQ, and tool comparisons
+  - name: Rust API Reference (docs.rs)
     url: https://docs.rs/perishables-core
-    about: Browse the API reference and deterministic trust-audit specification on docs.rs
+    about: Browse the Rust library API reference on docs.rs
+  - name: GitHub Discussions
+    url: https://github.com/david-engelmann/perishables/discussions
+    about: Ask questions about Open Knowledge Format bundles, semantic-layer grading, or CI integration
   - name: Security Advisories
     url: https://github.com/david-engelmann/perishables/security/advisories/new
     about: Report a vulnerability privately in accordance with SECURITY.md

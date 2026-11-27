@@ -2,6 +2,21 @@
 
 All notable changes to `perishables` and its published planted-defect corpus are recorded in this file.
 
+## [0.1.3] - 2026-11-27
+
+### Documentation site, guides, and runnable examples (`book/`, `docs/`, `examples/`, `AGENTS.md`)
+
+- Added themed `mdBook` documentation site (`book/book.toml`, `book/theme/`, `book/sync-docs.sh`, `book/src/`) with `mdbook-mermaid`, `mdbook-linkcheck` dead-link enforcement, and GitHub Pages deployment in `.github/workflows/docs.yml`.
+- Added `docs/FAQ.md`, `docs/COMPARISON.md`, and root `AGENTS.md` covering determinism rules, `--no-exec` untrusted bundle auditing, CLI exit codes, Python SDK workflows, and comparisons against schema validators, `dbt parse`, `spectacles`, and warehouse monitors.
+- Added top-level runnable `examples/` (`examples/audit_and_semantic_gate.py` and `examples/ci_gate_walkthrough.sh`) exercised in `.github/workflows/ci.yml` and `Makefile`.
+- Updated `README.md` and `.github/ISSUE_TEMPLATE/config.yml` with links to the published documentation site, runnable examples, agent guide, FAQ, Comparison, and GitHub Discussions.
+
+### Parser fuzzing, release provenance, and clean-install gates (`fuzz/`, `.github/workflows/`)
+
+- Added standalone out-of-workspace `libfuzzer-sys` crate `fuzz/` (`semantic_readers` and `okf_frontmatter_and_clock` plus seed corpora) checked on stable Rust in `.github/workflows/ci.yml` while keeping root `Cargo.lock` at zero external crates.
+- Added `.github/workflows/clean-install.yml` verifying `install.sh` on fresh Ubuntu and macOS runners without repository checkout or a Rust toolchain.
+- Added SLSA build provenance attestation (`actions/attest-build-provenance@v2`) over release archives and `SHA256SUMS` in `.github/workflows/release.yml`, and updated default version pins across workflows, `action.yml`, `CITATION.cff`, Rust crates, and the Python SDK to `0.1.3`.
+
 ## [0.1.2] - 2026-11-27
 
 ### Semantic grading and CLI (`perishables-semantic`, `perishables`)

@@ -43,7 +43,7 @@ __all__ = [
     "version",
 ]
 
-__version__ = "0.1.2"
+__version__ = "0.1.3"
 
 PathInput = str | os.PathLike[str]
 
@@ -257,19 +257,25 @@ def find_binary(binary: PathInput | None = None) -> Path:
     py_dir = Path(sys.executable).resolve().parent
     search_dirs.extend([py_dir, py_dir / "Scripts", py_dir / "bin"])
 
-    repo_root = Path(__file__).resolve().parents[2]
-    search_dirs.extend(
-        [
-            repo_root / "target" / "release",
-            repo_root / "target" / "debug",
-        ]
-    )
-
     for directory in search_dirs:
         for name in exe_names:
             candidate = directory / name
             if candidate.is_file():
                 return candidate
+
+    repo_root = Path(__file__).resolve().parents[2]
+    repo_candidates = [
+        directory / name
+        for directory in (
+            repo_root / "target" / "release",
+            repo_root / "target" / "debug",
+        )
+        for name in exe_names
+        if (directory / name).is_file()
+    ]
+    if repo_candidates:
+        repo_candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        return repo_candidates[0]
 
     found = shutil.which("perishables")
     if found:

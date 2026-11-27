@@ -1,0 +1,32 @@
+[package]
+name = "perishables-fuzz"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+perishables-core = { path = "../crates/perishables-core" }
+perishables-semantic = { path = "../crates/perishables-semantic" }
+
+# Standalone workspace so libfuzzer-sys stays in fuzz/Cargo.lock and never
+# enters the root zero-dependency Cargo.lock.
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "semantic_readers"
+path = "fuzz_targets/semantic_readers.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "okf_frontmatter_and_clock"
+path = "fuzz_targets/okf_frontmatter_and_clock.rs"
+test = false
+doc = false
+bench = false

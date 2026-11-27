@@ -22,7 +22,7 @@ CORPUS_FIXTURES = ROOT / "corpus" / "fixtures"
 
 class PerishablesSdkTests(unittest.TestCase):
     def test_version_and_exports(self) -> None:
-        self.assertEqual(perishables.__version__, "0.1.2")
+        self.assertEqual(perishables.__version__, "0.1.3")
         self.assertEqual(perishables.version(), perishables.__version__)
         expected_exports = {
             "audit_sarif",

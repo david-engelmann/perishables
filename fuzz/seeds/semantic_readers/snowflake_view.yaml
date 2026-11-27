@@ -1,0 +1,16 @@
+name: sales_semantic_view
+tables:
+  - name: orders
+    facts:
+      - name: revenue
+        description: Gross order revenue
+        synonyms: [sales]
+    dimensions:
+      - name: region
+        description: Customer region
+verified_queries:
+  - name: revenue_by_region
+    question: What is revenue by region?
+    sql: SELECT region, SUM(revenue) FROM orders GROUP BY 1
+    verified_by: alice
+    verified_at: 2026-10-15T12:00:00Z
