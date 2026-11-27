@@ -46,6 +46,7 @@ pub fn read_databricks_definition(text: &str) -> Result<Definition, String> {
                         label: None,
                         description: opt_text_of(column, "description"),
                         model: identifier.clone(),
+                        refs: Vec::new(),
                     });
                 }
             }

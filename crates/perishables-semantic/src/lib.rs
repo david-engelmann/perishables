@@ -76,6 +76,11 @@ pub struct Dimension {
     pub description: Option<String>,
     /// Parent model, dataset, table, cube, or view name.
     pub model: String,
+    /// Field references the dimension's own definition
+    /// makes, where the source form carries them. LookML
+    /// dimension SQL is the one form in the programme that
+    /// does. Empty everywhere else.
+    pub refs: Vec<String>,
 }
 
 /// One metric and the measures or upstream metrics it references.
@@ -255,6 +260,7 @@ pub fn read_definition(text: &str) -> Result<Definition, String> {
                         label: opt_text_of(d, "label"),
                         description: opt_text_of(d, "description"),
                         model: model_name.clone(),
+                        refs: Vec::new(),
                     });
                 }
             }
@@ -359,6 +365,25 @@ pub fn check_dangling(def: &Definition) -> Vec<Finding> {
     let qualified: BTreeSet<&str> = def.qualified_fields.iter().map(String::as_str).collect();
     let attributes: BTreeSet<&str> = def.attributes.iter().map(String::as_str).collect();
     let mut findings = Vec::new();
+    for dimension in &def.dimensions {
+        for r in &dimension.refs {
+            let resolves = if r.contains('.') {
+                qualified.contains(r.as_str())
+            } else {
+                measure_names.contains(r.as_str()) || dimension_names.contains(r.as_str())
+            };
+            if !resolves {
+                findings.push(Finding {
+                    code: Code::DanglingMetricReference,
+                    item: dimension.name.clone(),
+                    detail: format!(
+                        "dimension {} references field {r}, which does not exist",
+                        dimension.name
+                    ),
+                });
+            }
+        }
+    }
     for metric in &def.metrics {
         for r in &metric.measure_refs {
             let resolves = if r.contains('.') {

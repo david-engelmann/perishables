@@ -139,11 +139,18 @@ fn collect_view(children: &[Item], view: &str) -> ViewData {
                     &format!("dimension {view}.{name}"),
                     &mut data.aliases,
                 );
+                let mut dim_refs = match prop(fields, "sql") {
+                    Some(Value::Sql(sql)) => extract_refs(sql),
+                    _ => Vec::new(),
+                };
+                dim_refs.sort();
+                dim_refs.dedup();
                 data.dimensions.push(Dimension {
                     name: name.clone(),
                     label: prop_string(fields, "label"),
                     description: prop_string(fields, "description"),
                     model: view.to_string(),
+                    refs: dim_refs,
                 });
             }
             Item::Block(kind, Some(name), fields) if kind == "measure" => {

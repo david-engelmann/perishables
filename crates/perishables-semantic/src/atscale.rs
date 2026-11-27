@@ -39,6 +39,7 @@ pub fn read_atscale_definition(text: &str) -> Result<Definition, String> {
                         label: opt_text_of(attr, "caption"),
                         description: opt_text_of(attr, "description"),
                         model: dim_name.clone(),
+                        refs: Vec::new(),
                     });
                 }
             }

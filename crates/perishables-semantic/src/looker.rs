@@ -61,6 +61,7 @@ fn collect_fields(view: &Json, view_name: &str, def: &mut Definition) {
                 label: opt_text_of(dim, "label"),
                 description: opt_text_of(dim, "description"),
                 model: view_name.to_string(),
+                refs: Vec::new(),
             });
         }
     }

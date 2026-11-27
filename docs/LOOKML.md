@@ -24,5 +24,5 @@ When `perishables grade-looker` or `read_lookml_project` receives multiple `.loo
 
 1. **Cross-file merging** combines views, explores, and `include` directives across all supplied files.
 2. **`extends` resolution** records each `extends: [parent]` declaration as a structural relationship (flagging missing parent views via `DANGLING_RELATIONSHIP`) and iteratively inherits parent dimensions and measures not overridden by the child view while preserving qualified `child.field` addressability.
-3. **Qualified field resolution** populates `Definition::qualified_fields` (`view.field`) across own and inherited fields so dotted `${other_view.field}` references inside measure SQL resolve project-wide and fail with `DANGLING_METRIC_REFERENCE` when a target view or field is absent.
+3. **Qualified field resolution** populates `Definition::qualified_fields` (`view.field`) across own and inherited fields so dotted `${other_view.field}` references inside measure and dimension SQL resolve project-wide and fail with `DANGLING_METRIC_REFERENCE` when a target view or field is absent.
 4. **`include` pattern coverage** matches model `include` globs against provided file paths and records unmatched patterns as informational coverage notes.
