@@ -283,6 +283,7 @@ class PerishablesSdkTests(unittest.TestCase):
     def test_completions_api_and_module_cli(self) -> None:
         expected_subcommands = (
             "audit",
+            "completions",
             "corpus",
             "drift",
             "grade",
