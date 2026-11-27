@@ -1,0 +1,36 @@
+# cargo-deny v2 supply-chain policy for perishables.
+# The workspace carries zero external crates; only first-party MIT OR Apache-2.0
+# workspace members (perishables-core, perishables-semantic, perishables) are permitted.
+
+[graph]
+all-features = true
+no-default-features = false
+
+[advisories]
+db-path = "~/.cargo/advisory-dbs"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+]
+confidence-threshold = 0.93
+exceptions = []
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = false
+highlight = "all"
+deny = []
+skip = []
+skip-tree = []
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://docs.rs/perishables-core
+    about: Browse the API reference and deterministic trust-audit specification on docs.rs
+  - name: Security Advisories
+    url: https://github.com/david-engelmann/perishables/security/advisories/new
+    about: Report a vulnerability privately in accordance with SECURITY.md

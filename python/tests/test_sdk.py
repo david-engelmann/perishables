@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -19,10 +22,11 @@ CORPUS_FIXTURES = ROOT / "corpus" / "fixtures"
 
 class PerishablesSdkTests(unittest.TestCase):
     def test_version_and_exports(self) -> None:
-        self.assertEqual(perishables.__version__, "0.1.1")
+        self.assertEqual(perishables.__version__, "0.1.2")
         self.assertEqual(perishables.version(), perishables.__version__)
         expected_exports = {
             "audit_sarif",
+            "completions",
             "grade_atscale",
             "grade_cube",
             "grade_databricks",
@@ -275,6 +279,124 @@ class PerishablesSdkTests(unittest.TestCase):
         with self.assertRaises(perishables.PerishablesError) as ctx:
             perishables.audit(clean_dir, as_of="not-a-date", no_exec=True)
         self.assertEqual(ctx.exception.exit_code, 2)
+
+    def test_completions_api_and_module_cli(self) -> None:
+        expected_subcommands = (
+            "audit",
+            "corpus",
+            "drift",
+            "grade",
+            "grade-dbt",
+            "grade-ossie",
+            "grade-snowflake",
+            "grade-databricks",
+            "grade-cube",
+            "grade-looker",
+            "grade-atscale",
+        )
+        expected_flags = (
+            "--as-of",
+            "--format",
+            "--output",
+            "--no-exec",
+            "--timing",
+            "--ecosystem",
+            "--changed-at",
+            "--help",
+            "--version",
+        )
+
+        self.assertEqual(perishables.completions(), perishables.completions("bash"))
+        self.assertEqual(
+            perishables.completions("pwsh"),
+            perishables.completions("PowerShell"),
+        )
+
+        pkg_parent = str(Path(perishables.__file__).resolve().parents[1])
+        env = dict(os.environ)
+        existing_py_path = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = (
+            f"{pkg_parent}{os.pathsep}{existing_py_path}"
+            if existing_py_path
+            else pkg_parent
+        )
+
+        for shell in ("bash", "zsh", "fish", "powershell"):
+            script = perishables.completions(shell)
+            self.assertTrue(script.endswith("\n"))
+            for sub in expected_subcommands:
+                self.assertIn(sub, script, f"{shell} missing subcommand {sub}")
+            for flag in expected_flags:
+                self.assertIn(flag, script, f"{shell} missing flag {flag}")
+
+            cli_run = subprocess.run(
+                [sys.executable, "-m", "perishables", "completions", shell],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                env=env,
+                check=False,
+            )
+            self.assertEqual(cli_run.returncode, 0, cli_run.stderr)
+            self.assertEqual(cli_run.stdout, script)
+
+        bash_bin = shutil.which("bash")
+        if bash_bin and os.name != "nt":
+            syntax = subprocess.run(
+                [bash_bin, "-n"],
+                input=perishables.completions("bash"),
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            self.assertEqual(syntax.returncode, 0, syntax.stderr)
+
+        with self.assertRaises(perishables.PerishablesError) as ctx:
+            perishables.completions("tcsh")
+        self.assertEqual(ctx.exception.exit_code, 2)
+
+        bad_cli = subprocess.run(
+            [sys.executable, "-m", "perishables", "completions", "tcsh"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            check=False,
+        )
+        self.assertEqual(bad_cli.returncode, 2)
+
+        missing_arg = subprocess.run(
+            [sys.executable, "-m", "perishables", "completions"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            check=False,
+        )
+        self.assertEqual(missing_arg.returncode, 2)
+
+        help_cli = subprocess.run(
+            [sys.executable, "-m", "perishables", "completions", "--help"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            check=False,
+        )
+        self.assertEqual(help_cli.returncode, 0)
+        self.assertIn("completions", help_cli.stdout)
+
+        delegated = subprocess.run(
+            [sys.executable, "-m", "perishables", "--version"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env=env,
+            check=False,
+        )
+        self.assertEqual(delegated.returncode, 0, delegated.stderr)
+        self.assertEqual(delegated.stdout.strip(), f"perishables {perishables.__version__}")
 
 
 if __name__ == "__main__":

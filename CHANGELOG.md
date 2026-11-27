@@ -2,6 +2,24 @@
 
 All notable changes to `perishables` and its published planted-defect corpus are recorded in this file.
 
+## [0.1.2] - 2026-11-27
+
+### Semantic grading and CLI (`perishables-semantic`, `perishables`)
+
+- Graded `${field}` references inside LookML `dimension` and `dimension_group` SQL blocks alongside measure SQL under `DANGLING_METRIC_REFERENCE` (`#15`).
+- Updated `perishables corpus` to resolve either a corpus root directory (containing `manifest.toml` and `fixtures/`) or a `fixtures/` directory directly (`#14`).
+- Added zero-dependency shell completion script generation in `perishables::completions` (`Shell`, `completions_script`, `write_completions`) covering all subcommands and flags across `bash`, `zsh`, `fish`, and `powershell`.
+
+### Python SDK and distribution (`python/perishables`, `install.sh`)
+
+- Added pure-Python `perishables.completions(shell)` and module entrypoint `python -m perishables completions <bash|zsh|fish|powershell>` (with CLI argument delegation via `python -m perishables`).
+- Added POSIX `install.sh` (`--version`, `--install-dir`, `--base-url`, `--target`, `--help`) verifying prebuilt GitHub Release tarballs against `SHA256SUMS` before extraction.
+
+### Supply chain, governance, and developer tooling
+
+- Added `deny.toml` (`cargo-deny` v2) enforcing zero external dependencies and `MIT OR Apache-2.0` licensing, plus `cargo deny check` in the `hygiene` job of `.github/workflows/ci.yml`.
+- Added `CITATION.cff` (CFF 1.2.0), `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1), `.github/ISSUE_TEMPLATE/config.yml`, `Makefile`, and `.editorconfig`, and updated default version pins across `action.yml`, `.github/workflows/release.yml`, and `.github/workflows/verify-published.yml` to `0.1.2`.
+
 ## [0.1.1] - 2026-11-26
 
 ### Python SDK (`python/perishables`)
