@@ -968,53 +968,94 @@ struct ParsedManifest {
     fixtures: BTreeMap<String, ManifestEntry>,
 }
 
+/// One scanned line of the flat TOML subset the corpus
+/// files use, with its 1-based line number: a `[[section]]`
+/// header or a `key = "value"` entry. The manifest and the
+/// fixture labels share this subset, so they share this
+/// scanner. Each parser interprets the lines under its own
+/// validation and its own error wording, which the caller
+/// supplies so no message changes.
+enum FlatTomlLine {
+    Section(String, String),
+    Entry(String, String),
+}
+
+fn scan_flat_toml(
+    text: &str,
+    malformed: &dyn Fn(usize, &str) -> String,
+    bad_string: &dyn Fn(usize) -> String,
+) -> Result<Vec<(usize, FlatTomlLine)>, String> {
+    let mut out = Vec::new();
+    for (index, raw_line) in text.lines().enumerate() {
+        let trimmed = raw_line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        let line_no = index + 1;
+        if let Some(section) = trimmed
+            .strip_prefix("[[")
+            .and_then(|rest| rest.strip_suffix("]]"))
+        {
+            out.push((
+                line_no,
+                FlatTomlLine::Section(section.trim().to_string(), trimmed.to_string()),
+            ));
+            continue;
+        }
+        let Some((key, value)) = trimmed.split_once('=') else {
+            return Err(malformed(line_no, trimmed));
+        };
+        let value = parse_toml_string(value.trim()).ok_or_else(|| bad_string(line_no))?;
+        out.push((line_no, FlatTomlLine::Entry(key.trim().to_string(), value)));
+    }
+    Ok(out)
+}
+
 fn parse_manifest(text: &str) -> Result<ParsedManifest, String> {
+    let lines = scan_flat_toml(
+        text,
+        &|line_no, trimmed| format!("malformed line {line_no} in manifest.toml: {trimmed}"),
+        &|line_no| format!("malformed string on line {line_no} in manifest.toml"),
+    )?;
     let mut corpus_version = String::new();
     let mut as_of = String::new();
     let mut fixtures: BTreeMap<String, ManifestEntry> = BTreeMap::new();
     let mut current: Option<ManifestEntry> = None;
 
-    for (line_no, raw_line) in text.lines().enumerate() {
-        let trimmed = raw_line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        if trimmed == "[[fixture]]" {
-            if let Some(entry) = current.take() {
-                validate_manifest_entry(&entry)?;
-                if fixtures.insert(entry.name.clone(), entry).is_some() {
-                    return Err("duplicate [[fixture]] name in manifest.toml".to_string());
+    for (line_no, line) in lines {
+        match line {
+            FlatTomlLine::Section(name, raw) => {
+                if name != "fixture" {
+                    return Err(format!("malformed line {line_no} in manifest.toml: {raw}"));
                 }
+                if let Some(entry) = current.take() {
+                    validate_manifest_entry(&entry)?;
+                    if fixtures.insert(entry.name.clone(), entry).is_some() {
+                        return Err("duplicate [[fixture]] name in manifest.toml".to_string());
+                    }
+                }
+                current = Some(ManifestEntry {
+                    set: "gate".to_string(),
+                    ..ManifestEntry::default()
+                });
             }
-            current = Some(ManifestEntry {
-                set: "gate".to_string(),
-                ..ManifestEntry::default()
-            });
-            continue;
-        }
-        let Some((key, value)) = trimmed.split_once('=') else {
-            return Err(format!(
-                "malformed line {} in manifest.toml: {trimmed}",
-                line_no + 1
-            ));
-        };
-        let key = key.trim();
-        let value = parse_toml_string(value.trim())
-            .ok_or_else(|| format!("malformed string on line {} in manifest.toml", line_no + 1))?;
-        if let Some(entry) = &mut current {
-            match key {
-                "name" => entry.name = value,
-                "taxonomy" => entry.taxonomy = value,
-                "expect" => entry.expect = value,
-                "expected_finding" => entry.expected_finding = Some(value),
-                "set" => entry.set = value,
-                _ => {}
-            }
-        } else {
-            match key {
-                "corpus_version" => corpus_version = value,
-                "as_of" => as_of = value,
-                _ => {}
+            FlatTomlLine::Entry(key, value) => {
+                if let Some(entry) = &mut current {
+                    match key.as_str() {
+                        "name" => entry.name = value,
+                        "taxonomy" => entry.taxonomy = value,
+                        "expect" => entry.expect = value,
+                        "expected_finding" => entry.expected_finding = Some(value),
+                        "set" => entry.set = value,
+                        _ => {}
+                    }
+                } else {
+                    match key.as_str() {
+                        "corpus_version" => corpus_version = value,
+                        "as_of" => as_of = value,
+                        _ => {}
+                    }
+                }
             }
         }
     }
@@ -1100,25 +1141,16 @@ fn parse_label(text: &str, dir_name: &str) -> Result<Label, String> {
         claimed_result: None,
         slug_tiers: Vec::new(),
     };
-    for (line_no, raw_line) in text.lines().enumerate() {
-        let trimmed = raw_line.trim();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            continue;
-        }
-        let Some((key, value)) = trimmed.split_once('=') else {
-            return Err(format!(
-                "malformed line {} in {dir_name}/LABEL.toml",
-                line_no + 1
-            ));
+    let lines = scan_flat_toml(
+        text,
+        &|line_no, _trimmed| format!("malformed line {line_no} in {dir_name}/LABEL.toml"),
+        &|line_no| format!("malformed string value on line {line_no} in {dir_name}/LABEL.toml"),
+    )?;
+    for (line_no, line) in lines {
+        let FlatTomlLine::Entry(key, value) = line else {
+            return Err(format!("malformed line {line_no} in {dir_name}/LABEL.toml"));
         };
-        let key = key.trim();
-        let value = parse_toml_string(value.trim()).ok_or_else(|| {
-            format!(
-                "malformed string value on line {} in {dir_name}/LABEL.toml",
-                line_no + 1
-            )
-        })?;
-        match key {
+        match key.as_str() {
             "fixture" => label.fixture = value,
             "taxonomy" => label.taxonomy = value,
             "expect" => label.expect = value,
