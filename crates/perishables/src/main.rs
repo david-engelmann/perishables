@@ -69,7 +69,11 @@ OPTIONS:
 perishables corpus - Run the planted-defect reference corpus gate
 
 USAGE:
-  perishables corpus [FIXTURES_DIR] [OPTIONS]
+  perishables corpus [CORPUS_DIR | FIXTURES_DIR] [OPTIONS]
+
+  CORPUS_DIR holds manifest.toml and a fixtures directory.
+  FIXTURES_DIR holds the fixture directories, with
+  manifest.toml in its parent. Both forms run the same gate.
 
 OPTIONS:
       --format <FORMAT>             Output format: text, json [default: text]
@@ -1243,14 +1247,26 @@ fn corpus(args: &[String]) -> ExitCode {
         return ExitCode::from(2);
     }
 
-    let dir = positionals
+    let given = positionals
         .first()
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from("corpus/fixtures"));
-    let manifest_path = dir
-        .parent()
-        .map(|parent| parent.join("manifest.toml"))
-        .unwrap_or_else(|| PathBuf::from("corpus/manifest.toml"));
+    // Two accepted forms. A corpus root holds manifest.toml
+    // and a fixtures directory inside it. A fixtures
+    // directory holds the fixture directories themselves,
+    // with manifest.toml in its parent. The corpus root is
+    // the form a user reaches for first, so it resolves
+    // first when both readings are possible.
+    let (dir, manifest_path) =
+        if given.join("manifest.toml").is_file() && given.join("fixtures").is_dir() {
+            (given.join("fixtures"), given.join("manifest.toml"))
+        } else {
+            let manifest_path = given
+                .parent()
+                .map(|parent| parent.join("manifest.toml"))
+                .unwrap_or_else(|| PathBuf::from("corpus/manifest.toml"));
+            (given, manifest_path)
+        };
     let manifest_text = match std::fs::read_to_string(&manifest_path) {
         Ok(t) => t,
         Err(err) => {
