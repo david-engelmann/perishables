@@ -60,6 +60,7 @@ fn definition_from(root: &Json) -> Definition {
                         label: opt_text_of(field, "label"),
                         description: opt_text_of(field, "description"),
                         model: dataset_name.clone(),
+                        refs: Vec::new(),
                     });
                 }
             }

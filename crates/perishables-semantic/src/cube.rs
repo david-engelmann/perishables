@@ -86,6 +86,7 @@ pub fn read_cube_js(text: &str) -> Result<Definition, String> {
                     label: opt_text_of(item, "title"),
                     description: opt_text_of(item, "description"),
                     model: name.clone(),
+                    refs: Vec::new(),
                 });
             }
         }
@@ -207,6 +208,7 @@ fn collect_members(item: &Json, model: &str, def: &mut Definition) {
                 label: opt_text_of(dim, "title"),
                 description: opt_text_of(dim, "description"),
                 model: model.to_string(),
+                refs: Vec::new(),
             });
         }
     }
