@@ -1,6 +1,6 @@
 //! Deterministic, zero-dependency shell completion scripts for the `perishables` CLI.
 //!
-//! Covers every `perishables` subcommand (`audit`, `corpus`, `drift`, `grade`,
+//! Covers every `perishables` subcommand (`audit`, `corpus`, `completions`, `drift`, `grade`,
 //! `grade-dbt`, `grade-ossie`, `grade-snowflake`, `grade-databricks`,
 //! `grade-cube`, `grade-looker`, and `grade-atscale`) and flag across Bash,
 //! Zsh, Fish, and PowerShell without external crates.
@@ -115,7 +115,7 @@ const BASH_COMPLETIONS: &str = r#"_perishables() {
     prev="${COMP_WORDS[COMP_CWORD-1]}"
   fi
 
-  local commands="audit corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale help"
+  local commands="audit completions corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale help"
   local ecosystems="dbt ossie snowflake databricks cube looker atscale"
   local formats="text json sarif github"
 
@@ -186,6 +186,13 @@ const BASH_COMPLETIONS: &str = r#"_perishables() {
         COMPREPLY=( $(compgen -d -- "${cur}") )
       fi
       ;;
+    completions)
+      if [[ "${cur}" == -* ]]; then
+        COMPREPLY=( $(compgen -W "-h --help" -- "${cur}") )
+      else
+        COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- "${cur}") )
+      fi
+      ;;
     grade)
       if [[ "${cur}" == -* ]]; then
         COMPREPLY=( $(compgen -W "--ecosystem --changed-at --format --output -o -h --help" -- "${cur}") )
@@ -208,7 +215,7 @@ const BASH_COMPLETIONS: &str = r#"_perishables() {
       fi
       ;;
     help)
-      COMPREPLY=( $(compgen -W "audit corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -- "${cur}") )
+      COMPREPLY=( $(compgen -W "audit completions corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -- "${cur}") )
       ;;
   esac
   return 0
@@ -226,6 +233,7 @@ _perishables() {
   local -a commands
   commands=(
     'audit:Audit an Open Knowledge Format bundle at a pinned as-of date'
+    'completions:Print a shell completion script'
     'corpus:Run the planted-defect reference corpus gate'
     'drift:Check SHA-256 source drift across an OKF bundle'
     'grade:Grade semantic-layer definitions with --ecosystem or auto-detection'
@@ -267,6 +275,11 @@ _perishables() {
             '(-o --output)'{-o,--output=}'[Write report to path]:output file:_files' \
             '(-h --help)'{-h,--help}'[Print help information]' \
             '1:corpus or fixtures directory:_files -/'
+          ;;
+        completions)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Print help information]' \
+            '1:shell:(bash zsh fish powershell)'
           ;;
         drift)
           _arguments \
@@ -325,6 +338,7 @@ complete -c perishables -n "__fish_use_subcommand" -s V -l version -d "Print ver
 
 complete -c perishables -f -n "__fish_use_subcommand" -a audit -d "Audit an Open Knowledge Format bundle at a pinned as-of date"
 complete -c perishables -f -n "__fish_use_subcommand" -a corpus -d "Run the planted-defect reference corpus gate"
+complete -c perishables -f -n "__fish_use_subcommand" -a completions -d "Print a shell completion script"
 complete -c perishables -f -n "__fish_use_subcommand" -a drift -d "Check SHA-256 source drift across an OKF bundle"
 complete -c perishables -f -n "__fish_use_subcommand" -a grade -d "Grade semantic-layer definitions with --ecosystem or auto-detection"
 complete -c perishables -f -n "__fish_use_subcommand" -a grade-dbt -d "Grade a dbt semantic manifest"
@@ -344,11 +358,12 @@ complete -c perishables -n "__fish_seen_subcommand_from grade" -x -l ecosystem -
 complete -c perishables -n "__fish_seen_subcommand_from grade grade-snowflake" -r -l changed-at -d "Definition last-changed date or epoch seconds (--changed-at)"
 
 complete -c perishables -n "__fish_seen_subcommand_from corpus" -x -l format -a "text json" -d "Output format (--format)"
+complete -c perishables -n "__fish_seen_subcommand_from completions" -x -a "bash zsh fish powershell" -d "Target shell"
 complete -c perishables -n "__fish_seen_subcommand_from audit drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -x -l format -a "text json sarif github" -d "Output format (--format)"
 
 complete -c perishables -n "__fish_seen_subcommand_from audit corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -r -s o -l output -d "Write report to path (--output)"
-complete -c perishables -n "__fish_seen_subcommand_from audit corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -s h -l help -d "Print subcommand help (--help)"
-complete -c perishables -f -n "__fish_seen_subcommand_from help" -a "audit corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale"
+complete -c perishables -n "__fish_seen_subcommand_from audit completions corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale" -s h -l help -d "Print subcommand help (--help)"
+complete -c perishables -f -n "__fish_seen_subcommand_from help" -a "audit completions corpus drift grade grade-dbt grade-ossie grade-snowflake grade-databricks grade-cube grade-looker grade-atscale"
 "#;
 
 const POWERSHELL_COMPLETIONS: &str = r#"Register-ArgumentCompleter -Native -CommandName perishables -ScriptBlock {
@@ -356,6 +371,7 @@ const POWERSHELL_COMPLETIONS: &str = r#"Register-ArgumentCompleter -Native -Comm
 
     $commands = @(
         'audit',
+        'completions',
         'corpus',
         'drift',
         'grade',
@@ -418,8 +434,16 @@ const POWERSHELL_COMPLETIONS: &str = r#"Register-ArgumentCompleter -Native -Comm
         return
     }
 
+    if ($subcommand -eq 'completions' -and -not $wordToComplete.StartsWith('-')) {
+        @('bash', 'zsh', 'fish', 'powershell') | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+            [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+        }
+        return
+    }
+
     $flags = switch ($subcommand) {
         'audit' { @('--as-of', '--format', '--output', '-o', '--no-exec', '--timing', '--help', '-h') }
+        'completions' { @('--help', '-h') }
         'corpus' { @('--format', '--output', '-o', '--help', '-h') }
         'drift' { @('--format', '--output', '-o', '--help', '-h') }
         'grade' { @('--ecosystem', '--changed-at', '--format', '--output', '-o', '--help', '-h') }

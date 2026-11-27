@@ -6,6 +6,7 @@ use perishables::completions::{Shell, completions_script, write_completions};
 
 const EXPECTED_SUBCOMMANDS: &[&str] = &[
     "audit",
+    "completions",
     "corpus",
     "drift",
     "grade",
