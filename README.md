@@ -75,18 +75,28 @@ Documentation bundles, AI context packs, and enterprise semantic layers rot quie
 | --- | --- | --- | --- |
 | [`perishables-core`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-core/README.md) | library | none (`std` only) | OKF bundle loader, YAML frontmatter and Markdown fence parser, proleptic Gregorian calendar math, FIPS 180-4 SHA-256, and the locked four-call trust surface. |
 | [`perishables-semantic`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-semantic/README.md) | library | none (`std` only) | Hand-written JSON, YAML, JS, and native LookML readers plus format-blind semantic grading rules across seven analytics ecosystems. |
-| [`perishables`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables/README.md) | binary and library | none (`std` only) | CLI dispatcher (`audit`, `drift`, `corpus`, `grade`, `grade-*`), AST-screened Python sandbox executor, and `text`, `json`, `sarif`, and `github` formatters. |
+| [`perishables`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables/README.md) | binary and library | none (`std` only) | CLI dispatcher (`audit`, `drift`, `corpus`, `grade`, `grade-*`), AST-screened Python sandbox executor, shell completion generator (`completions`), and `text`, `json`, `sarif`, and `github` formatters. |
 
 ## Quickstart
 
-Install `perishables` from PyPI, from crates.io, with `cargo binstall perishables`, or from the prebuilt Linux, macOS, and Windows archives on GitHub Releases.
+Install `perishables` from PyPI, from crates.io, with `cargo binstall perishables`, or via the SHA-256-verifying release installer (`install.sh`) across Linux and macOS.
 
 ```sh
 pip install perishables
 # or run directly without installing
 uvx perishables --version
+# or install prebuilt binaries verified against SHA256SUMS
+curl -fsSL https://raw.githubusercontent.com/david-engelmann/perishables/main/install.sh | sh
 # or install from crates.io
 cargo install perishables
+```
+
+Generate shell tab-completion scripts for `bash`, `zsh`, `fish`, or `powershell` via the Python module CLI (`python -m perishables completions <shell>`) or embed [`perishables::completions`](https://docs.rs/perishables/latest/perishables/completions/index.html) in Rust:
+
+```sh
+python3 -m perishables completions bash > ~/.local/share/bash-completion/completions/perishables
+python3 -m perishables completions zsh > ~/.zfunc/_perishables
+python3 -m perishables completions fish > ~/.config/fish/completions/perishables.fish
 ```
 
 The PyPI wheel bundles the native Rust `perishables` binary alongside a typed standard-library Python SDK.
@@ -170,7 +180,7 @@ assert!(check_drift(&bundle).is_empty());
 Configure the composite GitHub Action ([`action.yml`](https://github.com/david-engelmann/perishables/blob/main/action.yml)) in your workflow:
 
 ```yaml
-- uses: david-engelmann/perishables@v0.1.1
+- uses: david-engelmann/perishables@v0.1.2
   with:
     command: audit
     path: ./knowledge-bundle

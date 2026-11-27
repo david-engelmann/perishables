@@ -2,6 +2,11 @@ name: Verify Published Artifacts
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Published version to verify (for example 0.1.2)"
+        required: false
+        default: "0.1.2"
   schedule:
     - cron: "37 6 * * 1"
 
@@ -10,6 +15,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  VERIFY_VERSION: ${{ inputs.version || '0.1.2' }}
 
 jobs:
   scratch-project:
@@ -20,13 +26,13 @@ jobs:
         run: |
           rustup toolchain install 1.100.0 --profile minimal
           rustup default 1.100.0
-      - name: Build and run scratch consumer against published 0.1.1 crates
+      - name: Build and run scratch consumer against published 0.1.2 crates
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}"
           cargo new scratch-consumer
           cd scratch-consumer
-          cargo add perishables-core@0.1.1 perishables-semantic@0.1.1
+          cargo add "perishables-core@${VERIFY_VERSION}" "perishables-semantic@${VERIFY_VERSION}"
           cat <<'RS' > src/main.rs
           use perishables_core::AuditClock;
           use perishables_semantic::{Code, grade, read_definition, read_ossie_definition};
@@ -64,7 +70,7 @@ jobs:
               let findings = grade(&ossie_def);
               assert_eq!(findings.len(), 1);
               assert_eq!(findings[0].code, Code::NameCollision);
-              println!("scratch-consumer verified perishables-core and perishables-semantic 0.1.1");
+              println!("scratch-consumer verified perishables-core and perishables-semantic");
           }
           RS
           cargo run
@@ -77,13 +83,13 @@ jobs:
         run: |
           rustup toolchain install 1.100.0 --profile minimal
           rustup default 1.100.0
-      - name: Install perishables 0.1.1 and audit temporary OKF bundle
+      - name: Install perishables 0.1.2 and audit temporary OKF bundle
         run: |
           set -euo pipefail
           INSTALL_ROOT="${RUNNER_TEMP}/perishables-install"
-          cargo install perishables --version 0.1.1 --root "${INSTALL_ROOT}"
+          cargo install perishables --version "${VERIFY_VERSION}" --root "${INSTALL_ROOT}"
           BIN="${INSTALL_ROOT}/bin/perishables"
-          test "$("${BIN}" --version)" = "perishables 0.1.1"
+          test "$("${BIN}" --version)" = "perishables ${VERIFY_VERSION}"
 
           BUNDLE_DIR="${RUNNER_TEMP}/smoke-okf-bundle"
           mkdir -p "${BUNDLE_DIR}/metrics"
@@ -126,21 +132,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install perishables==0.1.1 from PyPI and exercise SDK
+      - name: Install perishables==0.1.2 from PyPI and exercise SDK
         run: |
           set -euo pipefail
           cd "${RUNNER_TEMP}"
           python -m venv venv
           ./venv/bin/pip install --upgrade pip
-          ./venv/bin/pip install perishables==0.1.1
-          test "$(./venv/bin/perishables --version)" = "perishables 0.1.1"
+          ./venv/bin/pip install "perishables==${VERIFY_VERSION}"
+          test "$(./venv/bin/perishables --version)" = "perishables ${VERIFY_VERSION}"
           ./venv/bin/python - <<'PY'
+          import os
           import pathlib
           import tempfile
           import perishables
 
-          assert perishables.__version__ == "0.1.1", perishables.__version__
-          assert perishables.version() == "0.1.1", perishables.version()
+          expected = os.environ["VERIFY_VERSION"]
+          assert perishables.__version__ == expected, perishables.__version__
+          assert perishables.version() == expected, perishables.version()
+          assert "grade-looker" in perishables.completions("bash")
 
           with tempfile.TemporaryDirectory() as tmp:
               root = pathlib.Path(tmp)
@@ -204,5 +213,5 @@ jobs:
               assert len(results) == 1, results
               assert results[0]["ruleId"] == "LAPSED_VERIFICATION"
               assert sarif_out.is_file()
-          print("PyPI perishables==0.1.1 verified.")
+          print(f"PyPI perishables=={expected} verified.")
           PY
