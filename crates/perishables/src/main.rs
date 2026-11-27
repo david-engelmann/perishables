@@ -3,7 +3,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
+use std::str::FromStr;
 
+use perishables::completions::{Shell, write_completions};
 use perishables::execute::{
     ComputationReport, ExecConfig, findings_from_reports, run_computations,
 };
@@ -26,6 +28,7 @@ USAGE:
 COMMANDS:
   audit             Audit an Open Knowledge Format bundle at a pinned as-of date
   corpus            Run the planted-defect reference corpus gate
+  completions       Print a shell completion script for bash, zsh, fish, or powershell
   drift             Check SHA-256 source drift across an OKF bundle
   grade             Grade semantic-layer definitions with --ecosystem or auto-detection
   grade-dbt         Grade a dbt semantic manifest (manifest.json or semantic_manifest.json)
@@ -78,6 +81,20 @@ USAGE:
 OPTIONS:
       --format <FORMAT>             Output format: text, json [default: text]
       --output <PATH>               Write report to PATH
+  -h, --help                        Print help information
+",
+        ),
+        "completions" => Some(
+            "\
+perishables completions - Print a shell completion script
+
+USAGE:
+  perishables completions <SHELL>
+
+  SHELL is one of bash, zsh, fish, or powershell (pwsh also works).
+  The script is written to stdout, ready to save or source.
+
+OPTIONS:
   -h, --help                        Print help information
 ",
         ),
@@ -196,6 +213,7 @@ fn main() -> ExitCode {
         }
         Some("audit") => audit(&args[1..]),
         Some("corpus") => corpus(&args[1..]),
+        Some("completions") => completions_cmd(&args[1..]),
         Some("drift") => drift(&args[1..]),
         Some("grade") => grade_unified(&args[1..]),
         Some("grade-dbt") => grade_ecosystem(&args[1..], "dbt", "GRADE-DBT"),
@@ -212,6 +230,43 @@ fn main() -> ExitCode {
         }
         None => {
             eprint!("{ROOT_HELP}");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn completions_cmd(args: &[String]) -> ExitCode {
+    if has_help_flag(args) {
+        print!("{}", subcommand_help("completions").unwrap_or(ROOT_HELP));
+        return ExitCode::SUCCESS;
+    }
+    let mut positionals: Vec<&str> = Vec::new();
+    let mut end_of_flags = false;
+    for arg in args {
+        if !end_of_flags && arg == "--" {
+            end_of_flags = true;
+            continue;
+        }
+        positionals.push(arg.as_str());
+    }
+    if positionals.len() != 1 {
+        eprintln!("completions takes exactly one argument, the shell name");
+        eprint!("{}", subcommand_help("completions").unwrap_or(ROOT_HELP));
+        return ExitCode::from(2);
+    }
+    let shell = match Shell::from_str(positionals[0]) {
+        Ok(shell) => shell,
+        Err(err) => {
+            eprintln!("{err}");
+            return ExitCode::from(2);
+        }
+    };
+    let stdout = std::io::stdout();
+    let mut lock = stdout.lock();
+    match write_completions(shell, &mut lock) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("failed to write the completion script: {err}");
             ExitCode::from(2)
         }
     }

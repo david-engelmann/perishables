@@ -4,6 +4,8 @@ use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use perishables::completions::{Shell, completions_script};
+
 static CLI_TEST_SEQ: AtomicU64 = AtomicU64::new(0);
 
 fn bin() -> &'static str {
@@ -62,10 +64,12 @@ fn help_and_version_exit_zero_across_all_subcommands() {
         &["-h"],
         &["help"],
         &["help", "audit"],
+        &["help", "completions"],
         &["--version"],
         &["-V"],
         &["audit", "--help"],
         &["corpus", "-h"],
+        &["completions", "--help"],
         &["drift", "--help"],
         &["grade", "--help"],
         &["grade-dbt", "--help"],
@@ -94,6 +98,33 @@ fn help_and_version_exit_zero_across_all_subcommands() {
 }
 
 #[test]
+fn completions_subcommand_prints_the_library_script_for_each_shell() {
+    for shell in Shell::ALL {
+        let out = run_cli(&["completions", shell.as_str()]);
+        assert_eq!(
+            out.status.code(),
+            Some(0),
+            "expected exit 0 for completions {}, stderr={}",
+            shell.as_str(),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(
+            out.stdout,
+            completions_script(shell).as_bytes(),
+            "binary output must be the library script for {}",
+            shell.as_str()
+        );
+    }
+
+    let pwsh = run_cli(&["completions", "pwsh"]);
+    assert_eq!(pwsh.status.code(), Some(0));
+    assert_eq!(
+        pwsh.stdout,
+        completions_script(Shell::PowerShell).as_bytes()
+    );
+}
+
+#[test]
 fn invalid_flags_and_missing_arguments_exit_two() {
     let clean = corpus_fixture("clean-healthy-chain");
     let clean_s = clean.to_str().unwrap();
@@ -111,6 +142,9 @@ fn invalid_flags_and_missing_arguments_exit_two() {
         &["audit", clean_s, "--as-of=2026-11-20", "--format=xml"],
         &["audit", clean_s, "--as-of=2026-11-20", "--output", inside_s],
         &["drift"],
+        &["completions"],
+        &["completions", "tcsh"],
+        &["completions", "bash", "zsh"],
         &["grade-dbt"],
         &[
             "grade-snowflake",
