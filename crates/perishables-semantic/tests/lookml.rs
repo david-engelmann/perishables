@@ -63,6 +63,21 @@ fn a_measure_on_an_undefined_field_is_exactly_one_finding() {
 }
 
 #[test]
+fn a_dimension_on_an_undefined_field_is_exactly_one_finding() {
+    // Dimension SQL carries references the same way measure
+    // SQL does. Here margin_band references gross_margin,
+    // which no field in the view defines, while
+    // amount_with_tax references the defined amount and
+    // stays silent. Exactly the one finding is the gate.
+    let def = load("lookml-dimension-field");
+    let findings = grade(&def);
+    assert_eq!(findings.len(), 1, "got {findings:?}");
+    assert_eq!(findings[0].code, Code::DanglingMetricReference);
+    assert_eq!(findings[0].item, "margin_band");
+    assert!(findings[0].detail.contains("gross_margin"));
+}
+
+#[test]
 fn a_file_outside_the_subset_is_a_reader_error() {
     // No double semicolon terminator, so the SQL chunk never
     // ends. The reader must refuse, not grade partially.

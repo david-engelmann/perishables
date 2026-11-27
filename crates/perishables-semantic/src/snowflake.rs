@@ -61,6 +61,7 @@ pub fn read_snowflake_definition(text: &str) -> Result<Definition, String> {
                             label: None,
                             description: opt_text_of(dim, "description"),
                             model: table_name.clone(),
+                            refs: Vec::new(),
                         });
                     }
                 }
