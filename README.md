@@ -1,224 +1,173 @@
-<p align="center">
-  <a href="https://github.com/david-engelmann/perishables">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-dark.svg">
-      <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-light.svg" alt="perishables" height="56">
-    </picture>
-  </a>
-</p>
-
-<h3 align="center">Point-in-time trust auditor for Open Knowledge Format bundles and seven analytics semantic layers, in zero-dependency Rust.</h3>
-
-<p align="center">
-  Verified claims have a shelf life. Schema validators check whether metadata fields parse. <code>perishables</code> checks whether those claims remain current, provenance-intact, acyclic, and computationally true at a pinned instant in time, with zero external crates in its dependency tree.
-</p>
-
-<p align="center">
-  <a href="https://david-engelmann.github.io/perishables/"><b>Docs</b></a> ·
-  <a href="https://github.com/david-engelmann/perishables/tree/main/examples">Examples</a> ·
-  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md">Architecture</a> ·
-  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md">OKF Trust Model</a> ·
-  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md">7 Semantic Layers</a> ·
-  <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md">Claims &amp; Corpus</a> ·
-  <a href="https://github.com/david-engelmann/perishables/releases">Releases</a>
-</p>
-
-<p align="center">
-  <a href="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml?query=branch%3Amain"><img src="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml/badge.svg?branch=main&event=push" alt="CI on main"></a>
-  <a href="https://crates.io/crates/perishables"><img src="https://img.shields.io/crates/v/perishables?color=c2410c&label=crates.io" alt="crates.io version"></a>
-  <a href="https://pypi.org/project/perishables/"><img src="https://img.shields.io/pypi/v/perishables?color=c2410c&label=pypi" alt="PyPI version"></a>
-  <a href="https://docs.rs/perishables-core"><img src="https://img.shields.io/docsrs/perishables-core" alt="docs.rs"></a>
-  <a href="https://github.com/david-engelmann/perishables/blob/main/Cargo.lock"><img src="https://img.shields.io/badge/external%20deps-0-success" alt="0 external dependencies"></a>
-  <a href="https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="MIT or Apache-2.0 license"></a>
-</p>
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-dark.svg">
+    <img alt="perishables" src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/perishables-lockup-light.svg" height="58">
+  </picture>
+  <p><strong>Point-in-time trust auditor for Open Knowledge Format bundles and seven analytics semantic layers, written in pure Rust over <code>std</code> with zero external crates.</strong></p>
+  <p>
+    <a href="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml"><img src="https://github.com/david-engelmann/perishables/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+    <a href="https://crates.io/crates/perishables"><img src="https://img.shields.io/crates/v/perishables?label=perishables" alt="perishables on crates.io"></a>
+    <a href="https://crates.io/crates/perishables-core"><img src="https://img.shields.io/crates/v/perishables-core?label=perishables-core" alt="perishables-core on crates.io"></a>
+    <a href="https://crates.io/crates/perishables-semantic"><img src="https://img.shields.io/crates/v/perishables-semantic?label=perishables-semantic" alt="perishables-semantic on crates.io"></a>
+    <a href="https://pypi.org/project/perishables/"><img src="https://img.shields.io/pypi/v/perishables?label=pypi%20perishables" alt="perishables on PyPI"></a>
+    <a href="https://docs.rs/perishables-core"><img src="https://img.shields.io/docsrs/perishables-core?label=docs.rs" alt="docs.rs"></a>
+    <a href="https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT"><img src="https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue" alt="MIT OR Apache-2.0"></a>
+  </p>
+  <p>
+    <a href="https://david-engelmann.github.io/perishables/">Documentation Book</a> ·
+    <a href="https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md">OKF Trust Model</a> ·
+    <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md">7 Semantic Layers</a> ·
+    <a href="https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md">Native LookML</a> ·
+    <a href="https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md">Claims &amp; Corpus</a> ·
+    <a href="https://github.com/david-engelmann/perishables/tree/main/examples">Examples</a>
+  </p>
+</div>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/money-shot.gif"
-       alt="A two-part view with live point-in-time evidence and corpus status above and real perishables CLI runs below, catching a lapsed verification, an Attested Computation mismatch, SHA-256 source drift, native LookML dangling references and name collisions, and passing all 19 reference corpus fixtures with zero mutations"
-       width="900">
+  <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/money-shot.gif" alt="perishables auditing lapsed verifications, sandboxed Python attestation mismatches, SHA-256 source drift, native LookML semantic errors, and all 19 reference corpus fixtures" width="880">
 </p>
 
-<p align="center"><sub>Every terminal line above comes from real executions of the <code>perishables</code> release binary against checked-in corpus fixtures and LookML models.</sub></p>
+Verified documentation and BI metric definitions decay silently: a concept regenerated after its last human review keeps a stale `human-reviewed` label, a referenced CSV extract changes on disk, an attested Python figure stops matching its code block, or a LookML measure references a deleted field. Schema linters pass every one of those files because the YAML, JSON, or LookML syntax is still valid. `perishables` evaluates whether those claims hold at an explicit `--as-of` instant.
 
-## Why perishables
+---
 
-Documentation bundles, AI context packs, and enterprise semantic layers rot quietly. A metric verified in June is regenerated in October while its frontmatter still reads `human-reviewed`. A raw CSV extract changes on disk while footnotes still cite the old numbers. A LookML measure references a deleted base field or introduces a duplicate business synonym. Schema validators pass every single one of those files because the syntax is still valid YAML, JSON, or LookML.
-
-`perishables` evaluates whether trust claims still hold at an explicit `--as-of` instant.
-
-- **Recomputed trust tiers.** Ignores stale self-reported tiers when underlying content was regenerated after its last verification (`LAPSED_VERIFICATION`), and flags `stable` concepts whose `stale_after` horizon has passed (`STALE_BUT_STABLE`).
-- **Cryptographic provenance and supersession integrity.** Hashes bundled source files with in-tree FIPS 180-4 SHA-256 to catch silent byte drift (`SOURCE_DRIFT`), verifies every `[^id]` footnote and in-bundle path, and walks `superseded_by` graphs to convict cycles, missing targets, and root-escaping `../` paths.
-- **Re-executed `Attested Computation` blocks.** Pre-screens deterministic Python blocks through `ast.parse`, binds typed parameters safely inside an isolated `0700` scratch folder with memory and timeout bounds, and compares the live result against the claimed figure (`ATTESTED_RESULT_MISMATCH`, `UNATTESTED_CLAIM`). Pass `--no-exec` when auditing untrusted bundles without subprocess execution.
-- **Format-blind grading across seven semantic layers.** Hand-written JSON, YAML, JavaScript, and native LookML readers normalize definitions from **dbt**, **Apache Ossie**, **Snowflake**, **Databricks Genie**, **Cube**, **Looker / LookML**, and **AtScale** into one `Definition` graph, catching dangling references, name and synonym collisions, fan-trap joins, lapsed verified queries, and incomplete ground-truth benchmarks.
-- **Zero external crates, zero ambient state, zero bundle writes.** `Cargo.lock` contains only the three workspace crates. No check reads `SystemTime::now()` or filesystem `mtime`, and `perishables corpus` hashes all 19 reference fixtures before and after auditing to prove zero directory mutation.
+## Why Syntax Validation Passes Decayed Truth
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/shelf-life-proof-dark.svg">
-    <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/shelf-life-proof-light.svg"
-         alt="Side-by-side comparison showing syntax-only schema validation passing four decayed or broken claims while perishables at --as-of 2026-11-20 convicts LAPSED_VERIFICATION, SOURCE_DRIFT, ATTESTED_RESULT_MISMATCH, and DANGLING_METRIC_REFERENCE"
-         width="860">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/syntax-vs-truth-dark.svg">
+    <img alt="Side-by-side comparison showing five structurally valid OKF and LookML lines that pass syntax linters while failing perishables point-in-time verification" src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/syntax-vs-truth-light.svg" width="920">
   </picture>
 </p>
 
-## How it works
+Every planted-defect bundle in [`corpus/fixtures/`](https://github.com/david-engelmann/perishables/tree/main/corpus/fixtures) is well-formed Markdown and YAML. `perishables` never reads `SystemTime::now()` or filesystem `mtime` metadata: you pass `--as-of YYYY-MM-DD` (or `--changed-at` on semantic views), and the auditor computes a byte-identical verdict across `text`, `json`, OASIS `sarif` 2.1.0, and `github` workflow annotations without writing a single byte into the audited directory.
+
+---
+
+## Point-in-Time Bundle Audit & Seven-Ecosystem Semantic Graph
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/how-it-works-dark.svg">
-    <img src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/how-it-works-light.svg"
-         alt="OKF bundles and seven analytics semantic ecosystems flow into perishables-core and perishables-semantic under a pinned AuditClock with zero external dependencies, emitting deterministic terminal, SARIF 2.1.0, GitHub Actions, and JSON verdicts"
-         width="860">
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/audit-timeline-and-graph-dark.svg">
+    <img alt="How perishables evaluates OKF bundle decay against an explicit AuditClock and grades seven semantic ecosystems through one Definition graph" src="https://raw.githubusercontent.com/david-engelmann/perishables/main/docs/media/audit-timeline-and-graph-light.svg" width="920">
   </picture>
 </p>
 
-| Crate | Kind | External runtime deps | Role |
-| --- | --- | --- | --- |
-| [`perishables-core`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-core/README.md) | library | none (`std` only) | OKF bundle loader, YAML frontmatter and Markdown fence parser, proleptic Gregorian calendar math, FIPS 180-4 SHA-256, and the locked four-call trust surface. |
-| [`perishables-semantic`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-semantic/README.md) | library | none (`std` only) | Hand-written JSON, YAML, JS, and native LookML readers plus format-blind semantic grading rules across seven analytics ecosystems. |
-| [`perishables`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables/README.md) | binary and library | none (`std` only) | CLI dispatcher (`audit`, `drift`, `corpus`, `grade`, `grade-*`), AST-screened Python sandbox executor, shell completion generator (`completions`), and `text`, `json`, `sarif`, and `github` formatters. |
+The workspace contains two pure-`std` analysis engines behind one CLI and Python SDK, with **zero third-party runtime or build dependencies** in `Cargo.lock`:
 
-## Quickstart
+1. **OKF v0.3 epistemic bundle engine (`perishables-core` + `perishables` attestation runner):**
+   - **Tier recomputation (`recompute_tier`):** Ignores self-reported tier labels and derives `unverified`, `machine-confirmed`, or `human-reviewed` strictly from well-formed verification events where `verified[].at >= generated.at`.
+   - **Freshness & supersession graphs:** Checks `stale_after` against `AuditClock` using Howard Hinnant civil-day arithmetic, and walks multi-hop `superseded_by` links to convict cycles (>64 hops or revisited nodes), bundle-root `../` escapes, external URIs, and non-deprecated supersessions.
+   - **Provenance & sandboxed `Attested Computation`:** Matches Markdown `[^id]` citations outside code spans to `sources`, hashes in-bundle files with in-tree FIPS 180-4 SHA-256 (`SOURCE_DRIFT`), and pre-screens deterministic Python blocks via `ast.parse` before running `python3 -I -B` inside an isolated `0700` scratch directory (or skips all subprocesses under `--no-exec`).
+2. **Cross-ecosystem semantic-layer engine (`perishables-semantic`):**
+   - Hand-written zero-dependency parsers normalize **dbt** (`manifest.json`, `semantic_manifest.json`), **Apache Ossie** (YAML/JSON), **Snowflake** (Semantic View YAML), **Databricks Genie** (`serialized_space` JSON), **Cube** (`.js` `cube()`/`view()`, `.yaml`, `/v1/meta` JSON), **Looker / native LookML** (`.view.lookml`, `.model.lookml` with `extends` inheritance and `include` globs, plus API JSON), and **AtScale** (model JSON) into a single `Definition` graph.
+   - Runs six format-blind graph rules over `Definition` to convict broken `${view.field}` / metric references, case-insensitive display-name and synonym collisions, lapsed verified queries, missing join or `extends` targets, empty benchmark answers, and multi-grain join fan-traps.
 
-Install `perishables` from PyPI, from crates.io, with `cargo binstall perishables`, or via the SHA-256-verifying release installer (`install.sh`) across Linux and macOS.
+---
+
+## Quickstart: CLI, Python SDK, and SARIF 2.1.0 CI Gate
 
 ```sh
+# Python wheel (bundles native perishables binary + typed Python SDK)
 pip install perishables
-# or run directly without installing
-uvx perishables --version
-# or install prebuilt binaries verified against SHA256SUMS
+
+# Prebuilt Linux / macOS tarball verified against SHA256SUMS
 curl -fsSL https://raw.githubusercontent.com/david-engelmann/perishables/main/install.sh | sh
-# or install from crates.io
+
+# Build from source via crates.io (0 external crates to download)
 cargo install perishables
 ```
 
-Generate shell tab-completion scripts for `bash`, `zsh`, `fish`, or `powershell` via the Python module CLI (`python -m perishables completions <shell>`) or embed [`perishables::completions`](https://docs.rs/perishables/latest/perishables/completions/index.html) in Rust:
+### Audit bundles and grade semantic layers from the CLI
 
 ```sh
-python3 -m perishables completions bash > ~/.local/share/bash-completion/completions/perishables
-python3 -m perishables completions zsh > ~/.zfunc/_perishables
-python3 -m perishables completions fish > ~/.config/fish/completions/perishables.fish
+# Audit an OKF bundle at a pinned date (pass --no-exec on untrusted inputs)
+perishables audit ./knowledge-bundle --as-of 2026-11-20 --format json
+perishables audit ./untrusted-bundle --as-of 2026-11-20 --no-exec --format json
+perishables drift ./knowledge-bundle --format json
+
+# Grade LookML, dbt, Snowflake, Databricks, Cube, Ossie, or AtScale offline
+perishables grade-looker views/orders.view.lookml models/sales.model.lookml
+perishables grade-dbt target/manifest.json
+perishables grade model.yaml views/orders.view.lookml --format sarif --output semantic.sarif
+
+# Run the built-in 19-fixture self-verification gate
+perishables corpus --format json
 ```
 
-The PyPI wheel bundles the native Rust `perishables` binary alongside a typed standard-library Python SDK.
+| Exit code | Meaning | Typical action |
+| --- | --- | --- |
+| `0` | Clean pass | Zero trust or semantic findings (informational `Note` coverage items never fail the gate). |
+| `1` | Gate failure | One or more deterministic `FindingCode` items emitted in stdout `text`, `json`, `sarif`, or `github`. |
+| `2` | Usage, I/O, or syntax error | Invalid CLI flags, missing input path, or malformed YAML / JSON / LookML / JS syntax on stderr. |
+
+### Drive from Python (`perishables`) or GitHub Actions
 
 ```python
 import perishables
 
-report = perishables.audit("corpus/fixtures/clean-team-verified", as_of="2026-11-20")
-report.raise_for_findings()
+audit = perishables.audit("corpus/fixtures/clean-team-verified", as_of="2026-11-20", no_exec=True)
+audit.raise_for_findings()
 
 lookml = perishables.grade_looker(["orders.view.lookml", "sales.model.lookml"])
-lookml.raise_for_findings()
-
-sarif = perishables.audit_sarif(
-    "corpus/fixtures/t1-lapsed",
-    as_of="2026-11-20",
-    output="audit.sarif",
-)
+sarif_doc = perishables.grade_sarif(["orders.view.lookml"], ecosystem="looker")
 ```
-
-### Audit an OKF knowledge bundle
-
-Every `audit` run takes an explicit `--as-of` date or RFC 3339 timestamp so results stay reproducible forever across clones and machines.
-
-```sh
-perishables audit ./bundle --as-of 2026-11-20
-perishables audit ./bundle --as-of 2026-11-20 --format sarif --output audit.sarif
-perishables audit ./untrusted-bundle --as-of 2026-11-20 --no-exec
-perishables drift ./bundle
-perishables corpus
-```
-
-Exit code `0` means zero gate findings, `1` means one or more gate findings, and `2` means a command usage or input parse error.
-
-### Grade semantic layers across seven ecosystems
-
-Run ecosystem-specific subcommands or the unified `perishables grade` command with `--format text|json|sarif|github`.
-
-```sh
-perishables grade-dbt manifest.json
-perishables grade-ossie model.yaml
-perishables grade-snowflake view.yaml --changed-at 2026-11-20
-perishables grade-databricks space.json
-perishables grade-cube model.js
-perishables grade-looker orders.view.lookml customers.view.lookml sales.model.lookml
-perishables grade-atscale model.json
-perishables grade model.yaml orders.view.lookml --format sarif --output semantic.sarif
-```
-
-### Finding codes at a glance
-
-| Surface | Finding codes enforced |
-| --- | --- |
-| OKF bundle audit (`12` codes, `19` corpus fixtures) | `LAPSED_VERIFICATION`, `MALFORMED_VERIFICATION`, `SUPERSESSION_CYCLE`, `DANGLING_SUPERSEDED_BY`, `SUPERSEDED_WITHOUT_DEPRECATED`, `STALE_BUT_STABLE`, `UNPARSEABLE_STALE_AFTER`, `ATTESTED_RESULT_MISMATCH`, `UNATTESTED_CLAIM`, `UNRESOLVED_CITATION`, `MISSING_SOURCE`, `SOURCE_DRIFT` |
-| Cross-ecosystem semantic grade (`6` rule codes + notes) | `DANGLING_METRIC_REFERENCE`, `NAME_COLLISION`, `LAPSED_VERIFIED_QUERY`, `DANGLING_RELATIONSHIP`, `BENCHMARK_WITHOUT_ANSWER`, `AMBIGUOUS_JOIN_PATH` |
-
-### Embed in Rust or GitHub Actions
-
-```rust
-use perishables_core::{
-    AuditClock, Bundle, check_currency, check_drift, check_freshness,
-    check_provenance, check_supersession, recompute_tier,
-};
-use std::path::Path;
-
-let clock = AuditClock::parse("2026-11-20").expect("valid date");
-let bundle = Bundle::load(Path::new("corpus/fixtures/clean-healthy-chain"))
-    .expect("bundle loads");
-
-for concept in &bundle.concepts {
-    let tier = recompute_tier(concept, &clock);
-    println!("{} -> {}", tier.concept_id, tier.recomputed_tier.name());
-}
-assert!(check_currency(&bundle, &clock).is_empty());
-assert!(check_supersession(&bundle).is_empty());
-assert!(check_freshness(&bundle, &clock).is_empty());
-assert!(check_provenance(&bundle).is_empty());
-assert!(check_drift(&bundle).is_empty());
-```
-
-Configure the composite GitHub Action ([`action.yml`](https://github.com/david-engelmann/perishables/blob/main/action.yml)) in your workflow:
 
 ```yaml
 - uses: david-engelmann/perishables@v0.1.3
   with:
-    command: audit
-    path: ./knowledge-bundle
-    as-of: "2026-11-20"
+    command: grade-looker
+    path: "views/orders.view.lookml models/sales.model.lookml"
     format: github
 ```
 
-## Verification
+---
 
-Run the full zero-dependency gate locally across formatting, Clippy, unit and integration suites, the 19-fixture planted-defect corpus, rustdoc, and the library example.
+## Complete Finding Taxonomy (18 Deterministic Codes)
 
-```sh
-cargo fmt --all -- --check
-cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
-cargo test --workspace --all-features --locked
-cargo run --locked -- corpus
-RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --locked
-cargo run -p perishables-core --example audit_bundle --locked
-```
+All finding codes are closed under semantic versioning and mapped 1-to-1 to fixtures in [`docs/CLAIMS.md`](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md):
 
-## Documentation
+### OKF Bundle Findings (`perishables-core` & `perishables`)
 
-| If you want to... | Read |
+| Code | Trigger condition |
 | --- | --- |
-| Read the published documentation site and quickstart | [Published docs](https://david-engelmann.github.io/perishables/) · [Documentation index](https://github.com/david-engelmann/perishables/blob/main/docs/README.md) |
-| Run end-to-end Python SDK and CLI CI gate scripts | [Runnable examples](https://github.com/david-engelmann/perishables/tree/main/examples) · [Agent integration guide](https://github.com/david-engelmann/perishables/blob/main/AGENTS.md) |
-| Understand crate boundaries and determinism guarantees | [Architecture](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md) · [Decisions](https://github.com/david-engelmann/perishables/blob/main/DECISIONS.md) |
-| Read the OKF trust-tier, currency, and provenance specification | [OKF trust design](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md) · [Attested Computation](https://github.com/david-engelmann/perishables/blob/main/docs/ATTESTATION.md) |
-| See how all seven analytics ecosystems map into one grading model | [Cross-ecosystem grading](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md) · [Native LookML reader](https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md) |
-| Compare `perishables` against schema linters, `dbt parse`, `spectacles`, and monitors | [Tool comparison](https://github.com/david-engelmann/perishables/blob/main/docs/COMPARISON.md) · [FAQ](https://github.com/david-engelmann/perishables/blob/main/docs/FAQ.md) |
-| Verify every claim against its corpus fixture or test | [Claims and corpus traceability](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md) · [Reference corpus](https://github.com/david-engelmann/perishables/blob/main/corpus/README.md) |
-| Review Python sandbox hardening, `--no-exec`, and release notes | [Security policy](https://github.com/david-engelmann/perishables/blob/main/SECURITY.md) · [Changelog](https://github.com/david-engelmann/perishables/blob/main/CHANGELOG.md) |
+| `LAPSED_VERIFICATION` | A verification event timestamp `at` predates `generated.at` on the same concept. |
+| `MALFORMED_VERIFICATION` | A verification entry is missing `by` or carries an unparseable `at` timestamp. |
+| `STALE_BUT_STABLE` | `AuditClock >= stale_after` while the concept still declares (or defaults to) `status: stable`. |
+| `UNPARSEABLE_STALE_AFTER` | `stale_after` contains an invalid calendar date or malformed timestamp (never treated as fresh). |
+| `SUPERSESSION_CYCLE` | Walking `superseded_by` revisits a concept or exceeds 64 hops. |
+| `DANGLING_SUPERSEDED_BY` | `superseded_by` points to a missing concept, an external URI, or a `../` path escaping the bundle root. |
+| `SUPERSEDED_WITHOUT_DEPRECATED` | Concept carries `superseded_by` while `status` is not `deprecated`. |
+| `UNRESOLVED_CITATION` | Markdown body footnote `[^label]` outside code blocks matches no `sources[].id`. |
+| `MISSING_SOURCE` | In-bundle `sources[].resource` file is absent from the bundle inventory or escapes the root. |
+| `SOURCE_DRIFT` | On-disk FIPS 180-4 SHA-256 digest of a bundled source file differs from recorded `sources[].sha256`. |
+| `ATTESTED_RESULT_MISMATCH` | Sandboxed Python `Attested Computation` output differs from `claimed_result`. |
+| `UNATTESTED_CLAIM` | Concept claims an attested result under an unsupported runtime or while `--no-exec` is active. |
 
-## Contributing
+### Cross-Ecosystem Semantic Findings (`perishables-semantic`)
 
-[CONTRIBUTING.md](https://github.com/david-engelmann/perishables/blob/main/CONTRIBUTING.md) details the zero-dependency rule, planted-defect fixture requirements, and local verification gates.
+| Code | Trigger condition |
+| --- | --- |
+| `DANGLING_METRIC_REFERENCE` | Metric, LookML `${field}` / `${view.field}`, Cube `view`, or AtScale hierarchy references an undefined target. |
+| `NAME_COLLISION` | Two or more metrics, measures, dimensions, or `synonyms` claim the same case-folded display name. |
+| `LAPSED_VERIFIED_QUERY` | Stored `verified_at` timestamp on a verified query predates `--changed-at`. |
+| `DANGLING_RELATIONSHIP` | Join, relationship, or LookML `extends` parent names a missing model, view, table, or cube. |
+| `BENCHMARK_WITHOUT_ANSWER` | Ground-truth benchmark or verified query has an empty natural-language question or empty expected SQL. |
+| `AMBIGUOUS_JOIN_PATH` | Two models connect both directly and via a 2- or 3-edge alternate join route at a different grain (fan-trap). |
+
+---
+
+## Zero-Dependency Workspace & Specifications
+
+| Crate | External crates | Scope |
+| --- | --- | --- |
+| [`perishables-core`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-core/README.md) | `0` (`std` only) | OKF v0.3 parser, civil-day calendar math, FIPS 180-4 SHA-256, `recompute_tier`, currency, supersession, and drift checks. |
+| [`perishables-semantic`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables-semantic/README.md) | `0` (`std` only) | Native JSON, YAML, JS `cube()`/`view()`, and LookML lexers/parsers plus format-blind `Definition` grading. |
+| [`perishables`](https://github.com/david-engelmann/perishables/blob/main/crates/perishables/README.md) | `0` (`std` only) | CLI binary, AST-screened Python attestation runner, canonical JSON & OASIS SARIF 2.1.0 renderers, corpus gate, and shell completions. |
+
+- **Specifications:** [Published Documentation Book](https://david-engelmann.github.io/perishables/) · [`docs/ARCHITECTURE.md`](https://github.com/david-engelmann/perishables/blob/main/docs/ARCHITECTURE.md) · [`docs/DESIGN.md`](https://github.com/david-engelmann/perishables/blob/main/docs/DESIGN.md) · [`docs/ATTESTATION.md`](https://github.com/david-engelmann/perishables/blob/main/docs/ATTESTATION.md) · [`docs/CROSS-ECOSYSTEM.md`](https://github.com/david-engelmann/perishables/blob/main/docs/CROSS-ECOSYSTEM.md) · [`docs/LOOKML.md`](https://github.com/david-engelmann/perishables/blob/main/docs/LOOKML.md) · [`docs/CLAIMS.md`](https://github.com/david-engelmann/perishables/blob/main/docs/CLAIMS.md)
+- **Guides & Policies:** [`docs/COMPARISON.md`](https://github.com/david-engelmann/perishables/blob/main/docs/COMPARISON.md) · [`docs/FAQ.md`](https://github.com/david-engelmann/perishables/blob/main/docs/FAQ.md) · [`examples/`](https://github.com/david-engelmann/perishables/tree/main/examples) · [`fuzz/`](https://github.com/david-engelmann/perishables/tree/main/fuzz) · [`AGENTS.md`](https://github.com/david-engelmann/perishables/blob/main/AGENTS.md) · [`SECURITY.md`](https://github.com/david-engelmann/perishables/blob/main/SECURITY.md)
 
 ## License
 
-Licensed under either of [MIT](https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT) or [Apache License, Version 2.0](https://github.com/david-engelmann/perishables/blob/main/LICENSE-APACHE) at your option.
+Licensed under either of [Apache License, Version 2.0](https://github.com/david-engelmann/perishables/blob/main/LICENSE-APACHE) or [MIT License](https://github.com/david-engelmann/perishables/blob/main/LICENSE-MIT), at your option.
