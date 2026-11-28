@@ -29,3 +29,4 @@ Specifications, corpus traceability, and ecosystem guides for `perishables`. The
 | --- | --- |
 | [DECISIONS.md](../DECISIONS.md) · [SECURITY.md](../SECURITY.md) | Zero-dependency and explicit-clock decisions, subprocess sandbox boundaries, and vulnerability reporting. |
 | [CONTRIBUTING.md](../CONTRIBUTING.md) · [CHANGELOG.md](../CHANGELOG.md) | Zero-external-crate `Cargo.lock` rule, local verification commands, and release history. |
+| [BUILD-ROUNDS.md](BUILD-ROUNDS.md) | Index of the maintainer build round records, rounds 7 through 24. |
